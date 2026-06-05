@@ -36,6 +36,7 @@ model Bot {
   updatedAt DateTime   @updatedAt
   posts     Post[]
   campaigns Campaign[]
+    connectedChats ConnectedChat[]
 }
 
 model Post {
@@ -74,6 +75,17 @@ model PostHistory {
   sentAt     DateTime   @default(now())
   status     SendStatus
   errorLog   String?
+}
+
+model ConnectedChat {
+  id        String   @id @default(cuid())
+  botId     String
+  bot       Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
+  chatId    String   // شناسه عددی گروه یا کانال تلگرام
+  chatTitle String   // نام گروه
+  createdAt DateTime @default(now())
+
+  @@unique([botId, chatId]) // جلوگیری از ثبت تکراری یک گروه برای یک ربات
 }
 
 enum Role {
