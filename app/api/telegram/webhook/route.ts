@@ -13,18 +13,22 @@ export async function POST(req: Request) {
 
     if (!botToken) throw new Error("Bot token is missing");
 
+    console.log('🐞🐞🐞🐞',);
+    console.dir(update, { depth: null });
+
+
     if (update.message) {
       if (update.message.contact || (update.message.text && update.message.text.startsWith("/start"))) {
         await handleStartAndAuth(update.message, botToken);
-      } 
+      }
       else if (update.message.text && update.message.text.startsWith("/campaigns")) {
         await handleCampaignsCommand(update.message, botToken);
-      } 
+      }
       else {
         await handleDraftPost(update.message, botToken);
       }
     }
-    
+
     if (update.my_chat_member) {
       await handleGroupAddition(update.my_chat_member, botToken);
     }
