@@ -7,31 +7,28 @@ import { useRouter } from "next/navigation";
 export default function TelegramLoginWidget() {
   const containerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
-console.log('👋👋👋');
 
   useEffect(() => {
     if (!containerRef.current) return;
-
-    // Prevent duplicate scripts if re-rendered
     if (containerRef.current.innerHTML.trim() !== "") return;
 
-    // Define the callback function globally for the widget to call
-    (window as any).onTelegramAuth = async (user: any) => {
+    // Define the callback function globally
+    (window as any).onTelegramAuth = async (data: any) => {
       try {
-        console.log('✔️✔️✔️ user', user) ;
+        console.log('✔️✔️✔️ auth data', data);
         
+        // The new OAuth returns an id_token (OIDC JWT) inside 'data'
         const res = await fetch("/api/auth/telegram", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(user),
+            body: JSON.stringify(data), 
         });
-        console.log('✔️✔️✔️ res', res);
 
         if (res.ok) {
           router.push("/dashboard");
           router.refresh();
         } else {
-          alert("خطا در ورود به سیستم"); // Login failed
+          alert("خطا در ورود به سیستم");
         }
       } catch (error) {
         console.error("Login error", error);
@@ -39,11 +36,13 @@ console.log('👋👋👋');
     };
 
     const script = document.createElement("script");
-    script.src = "https://telegram.org/js/telegram-widget.js?22";
-    script.setAttribute("data-telegram-login", process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || "");
-    script.setAttribute("data-size", "large");
-    script.setAttribute("data-radius", "8");
-    script.setAttribute("data-onauth", "onTelegramAuth(user)");
+    // Using the NEW script URL from your docs
+    script.src = "https://oauth.telegram.org/js/telegram-login.js?5";
+    
+    // Using Client ID instead of Bot Username
+    // Make sure to add NEXT_PUBLIC_TELEGRAM_CLIENT_ID to your .env
+    script.setAttribute("data-client-id", process.env.NEXT_PUBLIC_TELEGRAM_CLIENT_ID || "");
+    script.setAttribute("data-onauth", "onTelegramAuth(data)");
     script.setAttribute("data-request-access", "write");
     script.async = true;
 
