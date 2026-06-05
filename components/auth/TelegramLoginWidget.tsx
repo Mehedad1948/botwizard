@@ -18,14 +18,14 @@ console.log('👋👋👋');
     // Define the callback function globally for the widget to call
     (window as any).onTelegramAuth = async (user: any) => {
       try {
-        console.log('✔️✔️✔️');
+        console.log('✔️✔️✔️ user', user) ;
         
         const res = await fetch("/api/auth/telegram", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(user),
         });
-        console.log('✔️✔️✔️', res);
+        console.log('✔️✔️✔️ res', res);
 
         if (res.ok) {
           router.push("/dashboard");
