@@ -16,7 +16,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
       {/* Sidebar (Right side for RTL) */}
       <aside className="w-64 border-l bg-card hidden md:flex flex-col">
         <div className="p-6 border-b">
-          <h2 className="text-2xl font-bold text-primary">AutoPromo</h2>
+          <h2 className="text-2xl font-bold text-primary">Bot Wizard</h2>
         </div>
         <nav className="flex-1 p-4 space-y-2">
           <Link href="/dashboard" className="block px-4 py-2 rounded-md hover:bg-muted transition-colors">
@@ -34,7 +34,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
       {/* Main Content */}
       <main className="flex-1 flex flex-col overflow-y-auto">
         <header className="h-16 border-b bg-card flex items-center justify-between px-6">
-          <h1 className="font-semibold md:hidden">AutoPromo</h1>
+          <h1 className="font-semibold md:hidden">BotWizard</h1>
           <div className="mr-auto">
             {/* User profile / Logout placeholder */}
             <span className="text-sm text-muted-foreground">پروفایل</span>

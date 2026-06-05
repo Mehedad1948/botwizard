@@ -7,7 +7,7 @@ import { NuqsAdapter } from 'nuqs/adapters/next/app'
 const vazirmatn = Vazirmatn({ subsets: ["arabic"] });
 
 export const metadata: Metadata = {
-  title: "AutoPromo | زمان‌بندی پست تلگرام",
+  title: "Bot Wizard | زمان‌بندی پست تلگرام",
   description: "مدیریت و زمان‌بندی خودکار پست‌های تلگرام برای کسب‌وکارها",
 };
 
