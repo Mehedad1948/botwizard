@@ -15,29 +15,57 @@ export async function POST(req: Request) {
       // ==========================================
       // 1. HANDLE CONTACT SHARING (PHONE NUMBER)
       // ==========================================
-      if (contact && contact.phone_number) {
+   if (contact && contact.phone_number) {
         console.log(`📱 [Contact Received]: ${contact.phone_number}`);
         
-        // Normalize phone number to match Iran format (e.g., 0912...)
         let phone = contact.phone_number;
         if (phone.startsWith('+98')) phone = '0' + phone.slice(3);
         if (phone.startsWith('98')) phone = '0' + phone.slice(2);
 
+        // 1. Generate OTP
+        const otp = Math.floor(10000 + Math.random() * 90000).toString();
+        const expires = new Date(Date.now() + 5 * 60 * 1000);
+
         try {
+          // 2. Save phone AND the new OTP
           await prisma.user.update({
             where: { telegramId },
-            data: { phone: phone },
+            data: { 
+              phone: phone,
+              otpCode: otp,
+              otpExpires: expires
+            },
           });
-          console.log(`✅ [DB] Phone number updated for ${telegramId}`);
+          console.log(`✅ [DB] Phone and OTP updated for ${telegramId}`);
 
           if (botToken) {
+            // Message 1: Remove the contact keyboard
             await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 chat_id: chat.id,
-                text: "✅ شماره شما با موفقیت ثبت شد. حالا می‌توانید در سایت وارد شوید.",
+                text: "✅ شماره شما با موفقیت تایید شد.",
                 reply_markup: { remove_keyboard: true }
+              }),
+            });
+
+            // Message 2: Send OTP and Inline Login Button
+            // Adjust the domain to match your actual frontend URL (e.g., /login or /auth)
+            const appUrl = "https://botwizard-oesj.vercel.app"; 
+            const loginUrl = `${appUrl}/login?step=verify&phone=${phone}`;
+
+            await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                chat_id: chat.id,
+                text: `کد تایید شما: ${otp}\n\nبرای ورود مستقیم روی دکمه زیر کلیک کنید 👇`,
+                reply_markup: {
+                  inline_keyboard: [
+                    [{ text: "🌐 ورود به سایت", url: loginUrl }]
+                  ]
+                }
               }),
             });
           }
