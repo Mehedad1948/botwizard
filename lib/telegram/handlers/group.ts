@@ -14,11 +14,26 @@ export async function handleGroupAddition(my_chat_member: any, botToken: string)
     });
 
     if (user && user.bots.length > 0) {
-      // await prisma.group.upsert({
-      //   where: { chatId: chat.id.toString() },
-      //   update: { title: chat.title, isActive: true },
-      //   create: { chatId: chat.id.toString(), title: chat.title, botId: user.bots[0].id }
-      // });
+      const botId = user.bots[0].id;
+      const chatId = chat.id.toString();
+      const chatTitle = chat.title || "بدون نام";
+
+      await prisma.connectedChat.upsert({
+        where: { 
+          botId_chatId: {
+            botId: botId,
+            chatId: chatId
+          }
+        },
+        update: { 
+          chatTitle: chatTitle 
+        },
+        create: { 
+          botId: botId,
+          chatId: chatId, 
+          chatTitle: chatTitle 
+        }
+      });
     }
 
     await callTelegramAPI("sendMessage", {
