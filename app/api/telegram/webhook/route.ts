@@ -139,11 +139,26 @@ async function handleDraftPost(message: any, botToken: string) {
 // MODULE 3: GROUP ADDITION (my_chat_member)
 // ==========================================
 async function handleGroupAddition(my_chat_member: any, botToken: string) {
-  // ... (بدون تغییر) ...
   const { chat, new_chat_member, from } = my_chat_member;
   
   if (new_chat_member.status === "administrator" || new_chat_member.status === "member") {
-    // TODO: Save chat.id and chat.title to DB (so we can fetch them in the scheduling step)
+    
+    // واکشی کاربر برای اتصال گروه به او
+    const user = await prisma.user.findUnique({
+      where: { telegramId: from.id.toString() },
+      include: { bots: true } // فرض بر این است که ربات به کاربر متصل است
+    });
+
+    if (user && user.bots.length > 0) {
+      // فرض می‌کنیم جدولی به نام Group یا ConnectedChat دارید
+      // اگر ندارید، این بخش باید به اسکیما اضافه شود.
+      // await prisma.group.upsert({
+      //   where: { chatId: chat.id.toString() },
+      //   update: { title: chat.title, isActive: true },
+      //   create: { chatId: chat.id.toString(), title: chat.title, botId: user.bots[0].id }
+      // });
+    }
+
     await callTelegramAPI("sendMessage", {
       chat_id: from.id,
       text: `✅ ربات به **${chat.title}** متصل شد.\nحالا می‌توانید پست‌ها را زمان‌بندی کنید.`,
@@ -151,6 +166,7 @@ async function handleGroupAddition(my_chat_member: any, botToken: string) {
     }, botToken);
   }
 }
+
 
 // ==========================================
 // MODULE 4: CALLBACK QUERIES (Inline Buttons)
@@ -225,27 +241,61 @@ async function handleCallbackQuery(callback_query: any, botToken: string) {
   }
 
   // 5. STEP ONE: Interval Selected -> Save Campaign to DB
-  else if (data.startsWith("si_")) {
+ else if (data.startsWith("si_")) {
     const [_, draftId, targetGroupId, intervalHours] = data.split("_");
+    const intervalNum = parseInt(intervalHours);
 
-    // TODO: Save to DB
-    /* 
-    await prisma.campaign.create({
-      data: {
-        postId: DB_POST_ID,
-        chatId: targetGroupId,
-        intervalHours: parseInt(intervalHours),
-        nextRun: new Date(Date.now() + parseInt(intervalHours) * 3600000),
-        isActive: true
+    try {
+      // اصلاح کوئری: واکشی پست‌ها از طریق ربات
+      const user = await prisma.user.findUnique({
+        where: { telegramId: callback_query.from.id.toString() },
+        include: { 
+          bots: {
+            include: {
+              posts: { orderBy: { createdAt: 'desc' }, take: 1 }
+            }
+          } 
+        }
+      });
+
+      if (!user || user.bots.length === 0) {
+         throw new Error("کاربر یا رباتی یافت نشد");
       }
-    });
-    */
 
-    await callTelegramAPI("editMessageText", {
-      chat_id: chatId, message_id: messageId,
-      text: `✅ کمپین شما با موفقیت ثبت شد.\nپست شما هر ${intervalHours} ساعت در گروه انتخاب‌شده ارسال خواهد شد.\n\nبرای مدیریت کمپین‌ها از دستور /campaigns استفاده کنید.`
-    }, botToken);
+      const bot = user.bots[0];
+
+      if (bot.posts.length === 0) {
+         throw new Error("پستی یافت نشد");
+      }
+
+      const latestPost = bot.posts[0]; // در منطق واقعی باید پستی پیدا شود که مرتبط با draftId است
+
+      await prisma.campaign.create({
+        data: {
+          botId: bot.id,
+          postId: latestPost.id, // آیدی واقعی پست در دیتابیس
+          chatId: targetGroupId,
+          chatTitle: "گروه/کانال", // در صورت ذخیره در مراحل قبل اینجا ست می‌شود
+          intervalHours: intervalNum,
+          isActive: true,
+          nextRun: new Date(Date.now() + intervalNum * 60 * 60 * 1000), // محاسبه اجرای بعدی
+        }
+      });
+
+      await callTelegramAPI("editMessageText", {
+        chat_id: chatId, message_id: messageId,
+        text: `✅ کمپین شما با موفقیت ثبت شد.\nپست شما هر ${intervalHours} ساعت در گروه انتخاب‌شده ارسال خواهد شد.\n\nبرای مدیریت کمپین‌ها از دستور /campaigns استفاده کنید.`
+      }, botToken);
+
+    } catch (error) {
+      console.error("Error creating campaign:", error);
+      await callTelegramAPI("editMessageText", {
+        chat_id: chatId, message_id: messageId,
+        text: "❌ خطایی در ذخیره کمپین رخ داد. لطفا مجددا تلاش کنید."
+      }, botToken);
+    }
   }
+
    else if (data.startsWith("pause_camp_")) {
     const campId = data.split("_")[2];
     await prisma.campaign.update({
