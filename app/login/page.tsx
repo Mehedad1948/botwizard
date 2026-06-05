@@ -244,7 +244,7 @@ function LoginFormContent() {
           {showBotHelp && (
             <div className='mt-3 pt-3 border-t border-red-200 dark:border-red-800'>
               <a
-                href={`https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME}`}
+                href={`https://t.me/${process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME}`}
                 target='_blank'
                 rel='noreferrer'
                 className='block w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center justify-center gap-2 text-xs font-bold transition-colors'
