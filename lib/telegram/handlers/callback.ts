@@ -111,7 +111,8 @@ export async function handleCallbackQuery(callback_query: any, botToken: string)
   // 4. STEP ONE: Group Selected -> Show Intervals
   else if (data.startsWith("sg_")) {
     const [_, draftId, targetGroupId] = data.split("_");
-
+console.log(" ✉️ Original Data:", data);
+console.log("🚀 Parsed DraftId:", draftId);
     const intervals = [
       { label: "هر ۲ ساعت", hours: 2 },
       { label: "هر ۱۲ ساعت", hours: 12 },
