@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import { Vazirmatn } from "next/font/google";
 import "./tailwindcss.css";
+import { NuqsAdapter } from 'nuqs/adapters/next/app'
 
 const vazirmatn = Vazirmatn({ subsets: ["arabic"] });
 
@@ -17,7 +18,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fa" dir="rtl">
-      <body className={vazirmatn.className}>{children}</body>
+      <body className={vazirmatn.className}>
+        <NuqsAdapter>
+          {children}
+        </NuqsAdapter>
+      </body>
     </html>
   );
 }
