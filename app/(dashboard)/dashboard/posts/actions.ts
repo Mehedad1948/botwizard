@@ -69,3 +69,35 @@ export async function deletePostAction(postId: string) {
     throw new Error("خطایی در حذف پست رخ داد.");
   }
 }
+
+export async function createCampaignFromDashboardAction(formData: FormData) {
+  const session = await getSession();
+  if (!session?.userId) throw new Error("Unauthorized");
+
+  const postId = formData.get("postId") as string;
+  const chatId = formData.get("chatId") as string;
+  const intervalHours = parseInt(formData.get("intervalHours") as string);
+
+  if (!postId || !chatId || !intervalHours) throw new Error("اطلاعات ناقص است");
+
+  // چک کردن دسترسی
+  const post = await prisma.post.findFirst({
+    where: { id: postId, bot: { userId: session.userId } },
+  });
+  if (!post) throw new Error("پست یافت نشد");
+
+  await prisma.campaign.create({
+    data: {
+      botId: post.botId,
+      postId: post.id,
+      chatId: chatId,
+      chatTitle: "گروه ثبت شده از داشبورد", // یا آیدی
+      intervalHours: intervalHours,
+      isActive: true,
+      nextRun: new Date(Date.now() + intervalHours * 60 * 60 * 1000),
+    }
+  });
+
+  revalidatePath("/dashboard/campaigns");
+  revalidatePath("/dashboard/posts");
+}

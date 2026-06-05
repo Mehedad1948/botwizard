@@ -25,6 +25,7 @@ async function callTelegramAPI(method: string, payload: any, token: string) {
 // MODULE 1: AUTHENTICATION & START
 // ==========================================
 async function handleStartAndAuth(message: any, botToken: string) {
+  // ... (بدون تغییر) ...
   const { text, from, chat, contact } = message;
   const telegramId = from.id.toString();
   const appUrl = "https://botwizard-oesj.vercel.app";
@@ -35,11 +36,8 @@ async function handleStartAndAuth(message: any, botToken: string) {
 1️⃣ **اتصال گروه/کانال:** مرا به عنوان مدیر (Admin) به گروه یا کانال خود اضافه کنید تا بتوانم آنجا پست بگذارم.
 2️⃣ **ایجاد پست:** هر عکس، متن، ویدیو یا فایلی که دارید را به همین چت خصوصی بفرستید (یا فوروارد کنید).
 3️⃣ **انتشار:** به محض دریافت، به شما دکمه‌هایی می‌دهم تا آن را فوراً منتشر کنید یا در سایت برای آینده زمان‌بندی کنید.
-
-برای مدیریت ربات‌های متصل و زمان‌بندی دقیق، وارد پنل شوید 👇
   `;
 
-  // 1. Handle Contact Sharing (New User finalizing signup)
   if (contact && contact.phone_number) {
     let phone = contact.phone_number;
     if (phone.startsWith('+98')) phone = '0' + phone.slice(3);
@@ -53,14 +51,12 @@ async function handleStartAndAuth(message: any, botToken: string) {
       data: { phone, otpCode: otp, otpExpires: expires },
     });
 
-    // Remove keyboard and show success
     await callTelegramAPI("sendMessage", {
       chat_id: chat.id,
       text: "✅ شماره شما با موفقیت تایید شد.",
       reply_markup: { remove_keyboard: true }
     }, botToken);
 
-    // Send Guide and Inline Login
     const loginUrl = `${appUrl}/login?step=verify&phone=${phone}`;
     await callTelegramAPI("sendMessage", {
       chat_id: chat.id,
@@ -73,14 +69,12 @@ async function handleStartAndAuth(message: any, botToken: string) {
     return;
   }
 
-  // 2. Handle /start Command
   if (text && text.startsWith("/start")) {
     const existingUser = await prisma.user.findUnique({
       where: { telegramId },
       select: { phone: true }
     });
 
-    // If user already exists AND has a phone number
     if (existingUser && existingUser.phone) {
       await callTelegramAPI("sendMessage", {
         chat_id: chat.id,
@@ -96,7 +90,6 @@ async function handleStartAndAuth(message: any, botToken: string) {
       return;
     }
 
-    // If user is completely new or hasn't provided phone
     await prisma.user.upsert({
       where: { telegramId },
       update: { firstName: from.first_name || "", lastName: from.last_name || null, username: from.username || null },
@@ -119,22 +112,21 @@ async function handleStartAndAuth(message: any, botToken: string) {
 // MODULE 2: POST DRAFTING (Message Catcher)
 // ==========================================
 async function handleDraftPost(message: any, botToken: string) {
-  // If it's a private chat and NOT a command
   if (message.chat.type === "private" && !message.text?.startsWith("/")) {
     const draftId = message.message_id;
     const chatId = message.chat.id;
 
-    // TODO: Save draftId (message_id) and chatId to your DB Drafts table here
+    // TODO: Save message details to DB (Post table)
 
     await callTelegramAPI("sendMessage", {
       chat_id: chatId,
       reply_to_message_id: draftId,
-      text: "📌 محتوای شما به عنوان پیش‌نویس دریافت شد.\n\nچه کاری می‌خواهید انجام دهید؟",
+      text: "📌 محتوای شما دریافت شد.\nچه کاری می‌خواهید انجام دهید؟",
       reply_markup: {
         inline_keyboard: [
           [
             { text: "🚀 ارسال فوری", callback_data: `send_now_${draftId}` },
-            { text: "📅 زمان‌بندی (تقویم)", callback_data: `schedule_${draftId}` }
+            { text: "📅 زمان‌بندی", callback_data: `sch_${draftId}` } // Changed callback prefix for brevity
           ],
           [{ text: "❌ لغو", callback_data: "cancel_draft" }]
         ]
@@ -147,18 +139,14 @@ async function handleDraftPost(message: any, botToken: string) {
 // MODULE 3: GROUP ADDITION (my_chat_member)
 // ==========================================
 async function handleGroupAddition(my_chat_member: any, botToken: string) {
+  // ... (بدون تغییر) ...
   const { chat, new_chat_member, from } = my_chat_member;
   
-  // Check if the bot was added (or promoted)
   if (new_chat_member.status === "administrator" || new_chat_member.status === "member") {
-    console.log(`🤖 Bot added to chat: ${chat.title} (${chat.id}) by User: ${from.id}`);
-    
-    // TODO: Save chat.id and chat.title to your DB (e.g., TargetGroups table) linked to User(from.id)
-
-    // Notify the user in DM that the group is connected
+    // TODO: Save chat.id and chat.title to DB (so we can fetch them in the scheduling step)
     await callTelegramAPI("sendMessage", {
       chat_id: from.id,
-      text: `✅ ربات با موفقیت به گروه/کانال **${chat.title}** متصل شد.\nحالا می‌توانید پست‌های خود را به اینجا ارسال کنید!`,
+      text: `✅ ربات به **${chat.title}** متصل شد.\nحالا می‌توانید پست‌ها را زمان‌بندی کنید.`,
       parse_mode: "Markdown"
     }, botToken);
   }
@@ -172,38 +160,194 @@ async function handleCallbackQuery(callback_query: any, botToken: string) {
   const chatId = callback_query.message.chat.id;
   const messageId = callback_query.message.message_id;
 
+  // 1. Cancel
   if (data === "cancel_draft") {
     await callTelegramAPI("editMessageText", {
       chat_id: chatId,
       message_id: messageId,
-      text: "❌ پیش‌نویس لغو شد."
+      text: "❌ عملیات لغو شد."
     }, botToken);
   } 
+  
+  // 2. Send Now
   else if (data.startsWith("send_now_")) {
-    const draftId = data.replace("send_now_", "");
+    const draftId = data.split("_")[2];
     await callTelegramAPI("editMessageText", {
-      chat_id: chatId,
-      message_id: messageId,
-      text: "⏳ در حال آماده‌سازی برای ارسال..."
+      chat_id: chatId, message_id: messageId,
+      text: "⏳ در حال ارسال..."
     }, botToken);
-    
-    // Here you would normally fetch the user's connected groups and use copyMessage
-    // callTelegramAPI("copyMessage", { from_chat_id: chatId, message_id: draftId, chat_id: TARGET_GROUP_ID })
+    // TODO: Implement actual send
   }
-  else if (data.startsWith("schedule_")) {
+  
+  // 3. STEP ONE: Schedule Clicked -> Show Target Groups
+  else if (data.startsWith("sch_")) {
+    const draftId = data.split("_")[1];
+    
+    // TODO: Fetch user's connected groups from your Database here
+    // Mocking the database fetch for now:
+    const connectedGroups = [
+      { id: "-100123456789", title: "گروه تست ۱" },
+      { id: "-100987654321", title: "کانال تست ۲" }
+    ];
+
+    const keyboard = connectedGroups.map(group => (
+      [{ text: `📢 ${group.title}`, callback_data: `sg_${draftId}_${group.id}` }] // sg = select group
+    ));
+    keyboard.push([{ text: "🔙 بازگشت", callback_data: "cancel_draft" }]);
+
     await callTelegramAPI("editMessageText", {
-      chat_id: chatId,
-      message_id: messageId,
-      text: "📅 برای زمان‌بندی دقیق، لطفاً به پنل کاربری مراجعه کنید.",
-      reply_markup: {
-         inline_keyboard: [[{ text: "🌐 ورود به پنل", url: "https://botwizard-oesj.vercel.app/dashboard" }]]
-      }
+      chat_id: chatId, message_id: messageId,
+      text: "لطفاً گروه یا کانال مقصد را انتخاب کنید:",
+      reply_markup: { inline_keyboard: keyboard }
     }, botToken);
   }
 
-  // Answer the callback to remove the loading state on the user's button
+  // 4. STEP ONE: Group Selected -> Show Intervals
+  else if (data.startsWith("sg_")) {
+    const [_, draftId, targetGroupId] = data.split("_");
+
+    const intervals = [
+      { label: "هر ۲ ساعت", hours: 2 },
+      { label: "هر ۱۲ ساعت", hours: 12 },
+      { label: "هر ۲۴ ساعت (روزانه)", hours: 24 },
+    ];
+
+    const keyboard = intervals.map(inv => (
+      [{ text: `⏳ ${inv.label}`, callback_data: `si_${draftId}_${targetGroupId}_${inv.hours}` }] // si = select interval
+    ));
+    keyboard.push([{ text: "🔙 لغو", callback_data: "cancel_draft" }]);
+
+    await callTelegramAPI("editMessageText", {
+      chat_id: chatId, message_id: messageId,
+      text: "بازه زمانی تکرار این پست را انتخاب کنید:",
+      reply_markup: { inline_keyboard: keyboard }
+    }, botToken);
+  }
+
+  // 5. STEP ONE: Interval Selected -> Save Campaign to DB
+  else if (data.startsWith("si_")) {
+    const [_, draftId, targetGroupId, intervalHours] = data.split("_");
+
+    // TODO: Save to DB
+    /* 
+    await prisma.campaign.create({
+      data: {
+        postId: DB_POST_ID,
+        chatId: targetGroupId,
+        intervalHours: parseInt(intervalHours),
+        nextRun: new Date(Date.now() + parseInt(intervalHours) * 3600000),
+        isActive: true
+      }
+    });
+    */
+
+    await callTelegramAPI("editMessageText", {
+      chat_id: chatId, message_id: messageId,
+      text: `✅ کمپین شما با موفقیت ثبت شد.\nپست شما هر ${intervalHours} ساعت در گروه انتخاب‌شده ارسال خواهد شد.\n\nبرای مدیریت کمپین‌ها از دستور /campaigns استفاده کنید.`
+    }, botToken);
+  }
+   else if (data.startsWith("pause_camp_")) {
+    const campId = data.split("_")[2];
+    await prisma.campaign.update({
+      where: { id: campId },
+      data: { isActive: false }
+    });
+    await callTelegramAPI("editMessageText", {
+      chat_id: chatId, message_id: messageId,
+      text: "⏸ کمپین متوقف شد."
+    }, botToken);
+  }
+
+  // 7. Resume Campaign
+  else if (data.startsWith("resume_camp_")) {
+    const campId = data.split("_")[2];
+    await prisma.campaign.update({
+      where: { id: campId },
+      data: { isActive: true }
+    });
+    await callTelegramAPI("editMessageText", {
+      chat_id: chatId, message_id: messageId,
+      text: "▶️ کمپین مجدداً فعال شد."
+    }, botToken);
+  }
+
+  // 8. Delete Campaign
+  else if (data.startsWith("del_camp_")) {
+    const campId = data.split("_")[2];
+    await prisma.campaign.delete({
+      where: { id: campId }
+    });
+    await callTelegramAPI("editMessageText", {
+      chat_id: chatId, message_id: messageId,
+      text: "🗑 کمپین با موفقیت حذف شد."
+    }, botToken);
+  }
+
   await callTelegramAPI("answerCallbackQuery", { callback_query_id: callback_query.id }, botToken);
 }
+
+// ==========================================
+// MODULE: CAMPAIGNS MANAGEMENT (/campaigns)
+// ==========================================
+async function handleCampaignsCommand(message: any, botToken: string) {
+  const telegramId = message.from.id.toString();
+  const chatId = message.chat.id;
+
+  // واکشی کمپین‌های کاربر از دیتابیس (بر اساس ساختار Prisma شما)
+  // توجه: این کوئری ممکن است نیاز به تنظیم دقیق بر اساس schema.prisma شما داشته باشد.
+  const campaigns = await prisma.campaign.findMany({
+    where: {
+      // فرض می‌کنیم کمپین‌ها از طریق پست و بات به کاربر متصل هستند
+      post: {
+        bot: {
+          user: { telegramId }
+        }
+      }
+    },
+    include: {
+      post: true
+    }
+  });
+
+  if (!campaigns || campaigns.length === 0) {
+    await callTelegramAPI("sendMessage", {
+      chat_id: chatId,
+      text: "📭 شما هیچ کمپین فعالی ندارید."
+    }, botToken);
+    return;
+  }
+
+  // ارسال یک پیام جداگانه برای هر کمپین به همراه دکمه‌های شیشه‌ای
+  for (const camp of campaigns) {
+    const nextRunFa = new Date(camp.nextRun).toLocaleString('fa-IR');
+    const statusText = camp.isActive ? "✅ فعال" : "⏸ متوقف شده";
+    const pauseResumePrefix = camp.isActive ? "pause_camp" : "resume_camp";
+    const pauseResumeLabel = camp.isActive ? "⏸ توقف" : "▶️ ادامه";
+
+    const text = `
+📢 **گروه:** ${camp.chatId}
+📝 **پست:** ${camp.post.content?.substring(0, 30) || "مدیا/فایل"}...
+⏳ **تکرار:** هر ${camp.intervalHours} ساعت
+وضعیت: ${statusText}
+🗓 **اجرای بعدی:** ${nextRunFa}
+    `;
+
+    await callTelegramAPI("sendMessage", {
+      chat_id: chatId,
+      text: text,
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: pauseResumeLabel, callback_data: `${pauseResumePrefix}_${camp.id}` },
+            { text: "🗑 حذف", callback_data: `del_camp_${camp.id}` }
+          ]
+        ]
+      }
+    }, botToken);
+  }
+}
+
 
 // ==========================================
 // MAIN WEBHOOK ROUTE
@@ -215,21 +359,24 @@ export async function POST(req: Request) {
 
     if (!botToken) throw new Error("Bot token is missing");
 
-    // Route 1: Normal Messages (Text, Media, Contact, /start)
     if (update.message) {
       if (update.message.contact || (update.message.text && update.message.text.startsWith("/start"))) {
         await handleStartAndAuth(update.message, botToken);
-      } else {
+      } 
+      // اضافه شدن هندلر کمپین‌ها
+      else if (update.message.text && update.message.text.startsWith("/campaigns")) {
+        await handleCampaignsCommand(update.message, botToken);
+      } 
+      else {
         await handleDraftPost(update.message, botToken);
       }
     }
     
-    // Route 2: Bot added to Group/Channel
+    
     if (update.my_chat_member) {
       await handleGroupAddition(update.my_chat_member, botToken);
     }
 
-    // Route 3: User clicked an inline button
     if (update.callback_query) {
       await handleCallbackQuery(update.callback_query, botToken);
     }

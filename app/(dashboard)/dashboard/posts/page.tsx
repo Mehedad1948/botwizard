@@ -1,7 +1,7 @@
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { redirect } from "next/navigation";
-import { createPostAction, deletePostAction } from "./actions";
+import { createCampaignFromDashboardAction, createPostAction, deletePostAction } from "./actions";
 import Link from "next/link";
 
 export default async function PostsPage() {
@@ -20,6 +20,7 @@ export default async function PostsPage() {
     include: { bot: true },
     orderBy: { createdAt: "desc" },
   });
+  
 
   if (bots.length === 0) {
     return (
@@ -119,30 +120,55 @@ export default async function PostsPage() {
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {posts.map((post) => (
-              <div key={post.id} className="flex flex-col p-4 border rounded-xl bg-card shadow-sm hover:shadow transition-shadow space-y-3">
-                <div className="flex items-start justify-between border-b pb-3">
-                  <div>
-                    <h4 className="font-semibold text-sm text-primary dir-ltr">@{post.bot.username}</h4>
-                    <span className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground mt-1">
-                      {post.mediaType === "NONE" ? "متن" : post.mediaType}
-                    </span>
-                  </div>
-                  <form action={deletePostAction.bind(null, post.id)}>
-                    <button 
-                      type="submit" 
-                      className="text-xs text-destructive hover:bg-destructive/10 px-2 py-1 rounded-md transition-colors font-medium"
-                    >
-                      حذف
-                    </button>
-                  </form>
-                </div>
-                
-                <div className="flex-1 text-sm text-muted-foreground line-clamp-3 whitespace-pre-wrap">
-                  {post.content || <span className="italic text-muted-foreground/50">بدون متن...</span>}
-                </div>
-              </div>
-            ))}
+       {posts.map((post) => (
+  <div key={post.id} className="flex flex-col p-4 border rounded-xl bg-card shadow-sm hover:shadow transition-shadow space-y-3">
+    <div className="flex items-start justify-between border-b pb-3">
+      <div>
+        <h4 className="font-semibold text-sm text-primary dir-ltr">@{post.bot.username}</h4>
+        <span className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground mt-1">
+          {post.mediaType === "NONE" ? "متن" : post.mediaType}
+        </span>
+      </div>
+      <form action={deletePostAction.bind(null, post.id)}>
+        <button type="submit" className="text-xs text-destructive hover:bg-destructive/10 px-2 py-1 rounded-md transition-colors font-medium">
+          حذف
+        </button>
+      </form>
+    </div>
+    
+    <div className="flex-1 text-sm text-muted-foreground line-clamp-3 whitespace-pre-wrap">
+      {post.content || <span className="italic text-muted-foreground/50">بدون متن...</span>}
+    </div>
+
+    {/* فرم ساخت کمپین سریع */}
+    <div className="pt-3 border-t mt-2">
+      <form action={createCampaignFromDashboardAction} className="flex flex-col gap-2">
+        <input type="hidden" name="postId" value={post.id} />
+        <div className="flex gap-2 text-xs">
+          <input 
+            type="text" 
+            name="chatId" 
+            placeholder="Chat ID (مثل -100123...)" 
+            className="flex-1 rounded border px-2 py-1 bg-background" 
+            required 
+            dir="ltr"
+          />
+          <input 
+            type="number" 
+            name="intervalHours" 
+            placeholder="تکرار (ساعت)" 
+            className="w-24 rounded border px-2 py-1 bg-background" 
+            required 
+            min="1"
+          />
+        </div>
+        <button type="submit" className="w-full bg-secondary text-secondary-foreground text-xs py-1.5 rounded hover:bg-secondary/80">
+          + ایجاد کمپین از این پست
+        </button>
+      </form>
+    </div>
+  </div>
+))}
           </div>
         )}
       </div>
