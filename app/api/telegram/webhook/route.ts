@@ -7,18 +7,53 @@ export async function POST(req: Request) {
     const update = await req.json();
     console.log("🟢 [Webhook Received]:", JSON.stringify(update, null, 2));
 
-    // Check if it's a message
-    if (update.message && update.message.text) {
-      const { text, from, chat } = update.message;
-      console.log(`💬 [Message Text]: ${text} from ${from.id}`);
+    if (update.message) {
+      const { text, from, chat, contact } = update.message;
+      const telegramId = from.id.toString();
+      const botToken = process.env.TELEGRAM_LOGIN_BOT_TOKEN;
 
-      // Handle /start command
-      if (text.startsWith("/start")) {
-        const telegramId = from.id.toString();
+      // ==========================================
+      // 1. HANDLE CONTACT SHARING (PHONE NUMBER)
+      // ==========================================
+      if (contact && contact.phone_number) {
+        console.log(`📱 [Contact Received]: ${contact.phone_number}`);
+        
+        // Normalize phone number to match Iran format (e.g., 0912...)
+        let phone = contact.phone_number;
+        if (phone.startsWith('+98')) phone = '0' + phone.slice(3);
+        if (phone.startsWith('98')) phone = '0' + phone.slice(2);
 
-        // 1. Try to save to database
         try {
-          console.log("💾 [DB] Attempting to upsert user...");
+          await prisma.user.update({
+            where: { telegramId },
+            data: { phone: phone },
+          });
+          console.log(`✅ [DB] Phone number updated for ${telegramId}`);
+
+          if (botToken) {
+            await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                chat_id: chat.id,
+                text: "✅ شماره شما با موفقیت ثبت شد. حالا می‌توانید در سایت وارد شوید.",
+                reply_markup: { remove_keyboard: true }
+              }),
+            });
+          }
+        } catch (error) {
+          console.error("❌ [DB Error saving phone]:", error);
+        }
+        return NextResponse.json({ ok: true });
+      }
+
+      // ==========================================
+      // 2. HANDLE /start COMMAND
+      // ==========================================
+      if (text && text.startsWith("/start")) {
+        console.log(`💬 [Message Text]: /start from ${telegramId}`);
+
+        try {
           await prisma.user.upsert({
             where: { telegramId },
             update: {
@@ -33,31 +68,27 @@ export async function POST(req: Request) {
               username: from.username || null,
             },
           });
-          console.log("✅ [DB] User upserted successfully.");
         } catch (dbError) {
           console.error("❌ [DB Error]:", dbError);
-          // Note: If you get an error here, check if telegramId is marked as @unique in your schema.prisma
-          // and ensure there are no required fields (like phone) missing in this create block.
         }
 
-        // 2. Try to send message back
-        const botToken = process.env.TELEGRAM_LOGIN_BOT_TOKEN;
-        
-        if (!botToken) {
-          console.error("❌ [Env Error]: TELEGRAM_LOGIN_BOT_TOKEN is missing in Vercel!");
-        } else {
-          console.log("🚀 [Telegram] Sending reply...");
-          const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        if (botToken) {
+          console.log("🚀 [Telegram] Sending contact request keyboard...");
+          await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               chat_id: chat.id,
-              text: "✅ You are now authenticated! Return to the website.",
+              text: "لطفاً برای ورود به سایت، شماره موبایل خود را با استفاده از دکمه زیر به اشتراک بگذارید 👇",
+              reply_markup: {
+                keyboard: [
+                  [{ text: "📱 ارسال شماره موبایل", request_contact: true }]
+                ],
+                resize_keyboard: true,
+                one_time_keyboard: true
+              }
             }),
           });
-          
-          const responseData = await response.json();
-          console.log("📥 [Telegram Response]:", responseData);
         }
       }
     }
