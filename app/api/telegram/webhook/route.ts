@@ -27,8 +27,19 @@ async function callTelegramAPI(method: string, payload: any, token: string) {
 async function handleStartAndAuth(message: any, botToken: string) {
   const { text, from, chat, contact } = message;
   const telegramId = from.id.toString();
+  const appUrl = "https://botwizard-oesj.vercel.app";
 
-  // Handle Contact Sharing
+  const guideText = `
+🤖 **راهنمای استفاده از دستیار هوشمند:**
+
+1️⃣ **اتصال گروه/کانال:** مرا به عنوان مدیر (Admin) به گروه یا کانال خود اضافه کنید تا بتوانم آنجا پست بگذارم.
+2️⃣ **ایجاد پست:** هر عکس، متن، ویدیو یا فایلی که دارید را به همین چت خصوصی بفرستید (یا فوروارد کنید).
+3️⃣ **انتشار:** به محض دریافت، به شما دکمه‌هایی می‌دهم تا آن را فوراً منتشر کنید یا در سایت برای آینده زمان‌بندی کنید.
+
+برای مدیریت ربات‌های متصل و زمان‌بندی دقیق، وارد پنل شوید 👇
+  `;
+
+  // 1. Handle Contact Sharing (New User finalizing signup)
   if (contact && contact.phone_number) {
     let phone = contact.phone_number;
     if (phone.startsWith('+98')) phone = '0' + phone.slice(3);
@@ -42,28 +53,50 @@ async function handleStartAndAuth(message: any, botToken: string) {
       data: { phone, otpCode: otp, otpExpires: expires },
     });
 
-    // Remove keyboard
+    // Remove keyboard and show success
     await callTelegramAPI("sendMessage", {
       chat_id: chat.id,
       text: "✅ شماره شما با موفقیت تایید شد.",
       reply_markup: { remove_keyboard: true }
     }, botToken);
 
-    // Send OTP and Inline Login
-    const appUrl = "https://botwizard-oesj.vercel.app"; 
+    // Send Guide and Inline Login
     const loginUrl = `${appUrl}/login?step=verify&phone=${phone}`;
     await callTelegramAPI("sendMessage", {
       chat_id: chat.id,
-      text: `کد تایید شما: ${otp}\n\nبرای ورود مستقیم روی دکمه شیشه‌ای زیر کلیک کنید 👇`,
+      text: `کد ورود شما: ${otp}\n\n${guideText}`,
+      parse_mode: "Markdown",
       reply_markup: {
-        inline_keyboard: [[{ text: "🌐 ورود سریع به پنل", url: loginUrl }]]
+        inline_keyboard: [[{ text: "🌐 ورود سریع به پنل کاربری", url: loginUrl }]]
       }
     }, botToken);
     return;
   }
 
-  // Handle /start
+  // 2. Handle /start Command
   if (text && text.startsWith("/start")) {
+    const existingUser = await prisma.user.findUnique({
+      where: { telegramId },
+      select: { phone: true }
+    });
+
+    // If user already exists AND has a phone number
+    if (existingUser && existingUser.phone) {
+      await callTelegramAPI("sendMessage", {
+        chat_id: chat.id,
+        text: `سلام مجدد! 👋\nشما قبلاً ثبت نام کرده‌اید.\n\n${guideText}`,
+        parse_mode: "Markdown",
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "🌐 ورود به پنل کاربری", url: `${appUrl}/dashboard` }],
+            [{ text: "➕ ایجاد ربات جدید", url: `${appUrl}/dashboard/bots` }]
+          ]
+        }
+      }, botToken);
+      return;
+    }
+
+    // If user is completely new or hasn't provided phone
     await prisma.user.upsert({
       where: { telegramId },
       update: { firstName: from.first_name || "", lastName: from.last_name || null, username: from.username || null },
@@ -72,7 +105,7 @@ async function handleStartAndAuth(message: any, botToken: string) {
 
     await callTelegramAPI("sendMessage", {
       chat_id: chat.id,
-      text: "سلام! 👋\nبرای استفاده از ربات و ورود به پنل، لطفاً شماره موبایل خود را ارسال کنید 👇",
+      text: "سلام! 👋 به دستیار هوشمند مدیریت پست خوش آمدید.\n\nبرای استفاده از امکانات ربات و ورود به پنل، لطفاً شماره موبایل خود را از طریق دکمه زیر ارسال کنید 👇",
       reply_markup: {
         keyboard: [[{ text: "📱 ارسال شماره موبایل", request_contact: true }]],
         resize_keyboard: true,
