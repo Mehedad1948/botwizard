@@ -11,15 +11,14 @@ datasource db {
 
 model User {
   id         String   @id @default(cuid())
-  telegramId String?  @unique // اختیاری شد چون شاید با شماره وارد شود
-  phone      String?  @unique // اضافه شد
-  firstName  String
+  phone      String?  @unique
+  firstName  String?  
   lastName   String?
   username   String?
-  photoUrl   String?
-  role       Role     @default(USER)
-    otpCode    String?
+  telegramId String?  @unique 
+  otpCode    String?
   otpExpires DateTime?
+  role       Role     @default(USER)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   bots       Bot[]
