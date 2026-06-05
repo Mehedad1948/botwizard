@@ -1,29 +1,31 @@
 import prisma from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
-// فرض می‌کنیم برای تلگرام از node-telegram-bot-api یا fetch مستقیم استفاده می‌کنید
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_LOGIN_BOT_TOKEN;
 
 export async function POST(req: Request) {
   try {
     const { phoneNumber, method } = await req.json();
     
-    // استانداردسازی شماره
-    const cleanPhone = phoneNumber.startsWith('0') 
-      ? '+98' + phoneNumber.slice(1) 
-      : phoneNumber;
+    // Normalize phone to start with 0 (e.g., 0912...) to match webhook
+    let cleanPhone = phoneNumber;
+    if (cleanPhone.startsWith('+98')) cleanPhone = '0' + cleanPhone.slice(3);
+    if (cleanPhone.startsWith('98')) cleanPhone = '0' + cleanPhone.slice(2);
 
-    // تولید کد ۵ رقمی
+    // Generate 5-digit code
     const otp = Math.floor(10000 + Math.random() * 90000).toString();
-    const expires = new Date(Date.now() + 5 * 60 * 1000); // 5 دقیقه اعتبار
+    const expires = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
-    // یافتن یا ساخت کاربر اولیه
-    let user = await prisma.user.findUnique({ where: { phone: cleanPhone } });
+    // Find user by normalized phone
+    const user = await prisma.user.findUnique({ where: { phone: cleanPhone } });
+    
     if (!user) {
-      user = await prisma.user.create({
-        data: { phone: cleanPhone, otpCode: otp, otpExpires: expires }
-      });
+      // If user isn't found, it means they never shared contact via Telegram
+      return NextResponse.json({ 
+        message: "شما هنوز ربات را استارت نکرده‌اید. لطفاً ابتدا ربات را استارت کنید و شماره خود را به اشتراک بگذارید." 
+      }, { status: 404 });
     } else {
+      // Update existing user with new OTP
       await prisma.user.update({
         where: { id: user.id },
         data: { otpCode: otp, otpExpires: expires }
@@ -33,11 +35,11 @@ export async function POST(req: Request) {
     if (method === 'telegram') {
       if (!user.telegramId) {
         return NextResponse.json({ 
-          message: "شما هنوز ربات را استارت نکرده‌اید. لطفاً ابتدا ربات را استارت کنید و شماره خود را به اشتراک بگذارید." 
+          message: "اکانت تلگرام شما متصل نیست. لطفاً مجددا ربات را استارت کنید." 
         }, { status: 404 });
       }
       
-      // ارسال پیام به تلگرام کاربر
+      // Send OTP via Telegram
       await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -48,10 +50,11 @@ export async function POST(req: Request) {
       });
     }
 
-    // بخش پیامک (sms) را به سرویس پیامکی خود متصل کنید
+    // SMS logic goes here later...
 
     return NextResponse.json({ success: true, identifier: cleanPhone });
   } catch (error) {
+    console.error("OTP Error:", error);
     return NextResponse.json({ error: "خطای سرور" }, { status: 500 });
   }
 }
