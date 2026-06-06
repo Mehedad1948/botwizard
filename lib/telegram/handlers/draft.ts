@@ -86,13 +86,19 @@ export async function handleDraftPost(message: any, bot: Bot) {
                   text: `✅ زمان‌بندی با موفقیت انجام شد.\nپست شما در ${targetGroups.length} گروه هر روز در ساعات [${parsedTimes.join(" - ")}] ارسال خواهد شد.`
               }, bot.token);
 
-          } catch (error) {
-              console.error("Error creating specific times campaign:", error);
-              await callTelegramAPI("sendMessage", {
-                  chat_id: chatId,
-                  text: "❌ خطایی در ذخیره زمان‌بندی رخ داد."
-              }, bot.token);
-          }
+          } catch (error: any) {
+    console.error("Error creating specific times campaign:", error);
+    
+    // استخراج متن خطا
+    const errorMessage = error?.message || String(error);
+
+    // TODO: Remove the error message from the response for security/cleanliness in production
+    await callTelegramAPI("sendMessage", {
+        chat_id: chatId,
+        text: `❌ خطایی در ذخیره زمان‌بندی رخ داد.\n\nجزئیات خطا:\n${errorMessage}`
+    }, bot.token);
+}
+
           return;
       }
   }
