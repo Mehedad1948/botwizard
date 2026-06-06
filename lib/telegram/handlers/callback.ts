@@ -40,7 +40,7 @@ export async function handleCallbackQuery(callback_query: any, botToken: string)
         const keyboard = connectedGroups.map(group => (
             [{ text: `⬜️ ${group.chatTitle}`, callback_data: `tgl_${action}_${draftId}_${group.chatId}` }]
         ));
-        
+
         keyboard.push([{ text: "✅ تایید و ادامه", callback_data: `confirm_${action}_${draftId}` }]);
         keyboard.push([{ text: "🔙 لغو", callback_data: "cancel_draft" }]);
 
@@ -57,10 +57,10 @@ export async function handleCallbackQuery(callback_query: any, botToken: string)
         // data format: tgl_{action}_{draftId}_{chatId}
         const parts = data.split("_");
         const targetChatId = parts.slice(3).join("_"); // handle negative chatIds safely
-        
+
         // Read current keyboard
         const currentKeyboard = callback_query.message.reply_markup.inline_keyboard;
-        
+
         // Find and toggle the specific button
         for (const row of currentKeyboard) {
             for (const btn of row) {
@@ -87,7 +87,7 @@ export async function handleCallbackQuery(callback_query: any, botToken: string)
         const action = data.split("_")[1]; // "sn" or "sch"
         const draftId = data.split("_")[2];
         const currentKeyboard = callback_query.message.reply_markup.inline_keyboard;
-        
+
         // Extract selected Chat IDs by looking at buttons with ✅
         const selectedChatIds: string[] = [];
         for (const row of currentKeyboard) {
@@ -109,21 +109,59 @@ export async function handleCallbackQuery(callback_query: any, botToken: string)
         }
 
         if (action === "sn") {
-            // SEND NOW LOGIC (Execute instantly for all selected groups)
             await callTelegramAPI("editMessageText", {
                 chat_id: chatId, message_id: messageId,
-                text: `🚀 در حال ارسال به ${selectedChatIds.length} گروه...`
+                text: `🚀 در حال ارسال به ${selectedChatIds.length} گروه...\nلطفاً شکیبا باشید.`
             }, botToken);
-            // Add your actual send to target groups logic here!
+
+            let successCount = 0;
+            let failCount = 0;
+
+            try {
+                // ارسال به تمام گروه‌های انتخاب شده
+                for (const targetChatId of selectedChatIds) {
+                    try {
+                        const response = await callTelegramAPI("copyMessage", {
+                            chat_id: targetChatId, // مقصد: گروه
+                            from_chat_id: chatId,  // مبدا: چت خصوصی ربات با کاربر
+                            message_id: parseInt(draftId, 10), // آیدی پیام اصلی کاربر
+                        }, botToken);
+
+                        if (response && response.ok) {
+                            successCount++;
+                        } else {
+                            failCount++;
+                            console.error(`[Send Now] Failed to send to chat: ${targetChatId}. Response:`, response);
+                        }
+                    } catch (sendError) {
+                        failCount++;
+                        console.error(`[Send Now] Exception sending to chat: ${targetChatId}. Error:`, sendError);
+                    }
+                }
+
+                // آپدیت پیام وضعیت نهایی
+                await callTelegramAPI("editMessageText", {
+                    chat_id: chatId, message_id: messageId,
+                    text: `✅ ارسال فوری پایان یافت!\n\n✔️ موفق: ${successCount} گروه\n❌ ناموفق: ${failCount} گروه`
+                }, botToken);
+
+            } catch (error: any) {
+                console.error("[Send Now] Fatal System Error:", error);
+                await callTelegramAPI("editMessageText", {
+                    chat_id: chatId, message_id: messageId,
+                    text: `❌ خطای سیستمی رخ داد:\n${error.message}`
+                }, botToken);
+            }
             return;
-        } 
+        }
+
         else if (action === "sch") {
             // SCHEDULE LOGIC: Show Intervals
             // We pass the selected chat IDs joined by comma. 
             // Note: If you have >3 groups, this might exceed Telegram's 64-byte callback limit.
             // For production with many groups, you'd save this selection to the DB first.
-            const joinedChats = selectedChatIds.join(","); 
-            
+            const joinedChats = selectedChatIds.join(",");
+
             const intervals = [
                 { label: "هر ۲ ساعت", hours: 2 },
                 { label: "هر ۱۲ ساعت", hours: 12 },
@@ -151,7 +189,7 @@ export async function handleCallbackQuery(callback_query: any, botToken: string)
         const draftId = data.split("_")[1];
         const hoursPart = data.split("_")[2].split("?")[0];
         const intervalNum = parseInt(hoursPart);
-        
+
         const chatIdsString = data.split("?c=")[1];
         const targetGroups = chatIdsString.split(",");
 
@@ -197,6 +235,6 @@ export async function handleCallbackQuery(callback_query: any, botToken: string)
     }
 
     // (Keep your pause_camp_, resume_camp_, del_camp_ here as they were)
-    
+
     await callTelegramAPI("answerCallbackQuery", { callback_query_id: callback_query.id }, botToken);
 }
