@@ -56,7 +56,7 @@ export async function handleStartAndAuth(message: any, mainBotToken: string) {
       if (!user) throw new Error("User not registered. Should send /start first.");
 
       // CRITICAL STEP: Set the webhook for the user's bot
-     const baseUrl = process.env.APP_URL || `https://${process.env.APP_BASE_URL}`;
+     const baseUrl = process.env.APP_BASE_URL ;
       if (!baseUrl || baseUrl === "https://undefined") {
           throw new Error("آدرس پایه سرور (APP_URL) در فایل .env تنظیم نشده است.");
       }

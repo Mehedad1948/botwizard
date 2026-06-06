@@ -6,7 +6,7 @@ import { handleDraftPost } from "@/lib/telegram/handlers/draft";
 import { handleGroupAddition } from "@/lib/telegram/handlers/group";
 import { handleCallbackQuery } from "@/lib/telegram/handlers/callback";
 import { handleCampaignsCommand } from "@/lib/telegram/handlers/campaigns";
-import { callTelegramAPI } from "@/lib/telegram/api"; 
+import { callTelegramAPI } from "@/lib/telegram/api";
 
 export async function POST(req: Request, { params }: { params: Promise<{ token: string }> }) {
   try {
@@ -36,7 +36,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
 
     // ========== LOGIC FOR USER BOTS ==========
     console.info("🤖 [Routing] Traffic directed to USER BOT handlers.");
-    
+
     const bot = await prisma.bot.findUnique({
       where: { token: receivedToken },
       include: { user: true }
@@ -51,7 +51,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
 
     // Security Check
     const fromId = (update.message?.from?.id || update.callback_query?.from?.id || update.my_chat_member?.from?.id)?.toString();
-    
+
     if (!fromId) {
       console.warn("⚠️ [Security] Could not extract 'fromId' from update. Skipping payload.");
       return NextResponse.json({ ok: true });
@@ -86,12 +86,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     }
     else if (update.my_chat_member) {
       console.info(`🔄 [User Bot Router] Processing my_chat_member (Group Addition/Removal) for @${bot.username}`);
-      await handleGroupAddition(update.my_, bot);
+      await handleGroupAddition(update.my_chat_member, bot);
+
     }
     else if (update.callback_query) {
       console.info(`🔄 [User Bot Router] Processing callback_query for @${bot.username} | Data: ${update.callback_query.data}`);
       await handleCallbackQuery(update.callback_query, bot);
-    } 
+    }
     else {
       console.warn(`⚠️ [User Bot Router] Unhandled update type for @${bot.username}. N action taken.`);
     }
