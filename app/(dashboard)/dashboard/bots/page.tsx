@@ -1,16 +1,23 @@
-// src/app/dashboard/bots/page.tsx
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { redirect } from "next/navigation";
-import { addBotAction, deleteBotAction } from "./actions";
+import { addBotAction } from "./actions";
+import { Input } from "@/components/ui/input";
+import { SubmitButton } from "./SubmitButton";
+import { BotCard } from "./BotCard";
 
 export default async function BotsPage() {
   const session = await getSession();
   if (!session?.userId) redirect("/login");
 
-  // Fetch user's bots
+  // دریافت ربات‌ها به همراه تعداد گروه‌ها، کمپین‌ها و پست‌ها
   const bots = await prisma.bot.findMany({
     where: { userId: session.userId },
+    include: {
+      _count: {
+        select: { connectedChats: true, campaigns: true, posts: true },
+      },
+    },
     orderBy: { createdAt: "desc" },
   });
 
@@ -29,29 +36,10 @@ export default async function BotsPage() {
           راهنمای دریافت توکن ربات (Bot Token)
         </h3>
         <ol className="list-decimal list-inside space-y-2 text-blue-900/80 dark:text-blue-200/80">
-          <li>
-            در تلگرام عبارت{" "}
-            <a
-              href="https://t.me/BotFather"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium text-blue-600 dark:text-blue-400 hover:underline"
-              dir="ltr"
-            >
-              @BotFather
-            </a>{" "}
-            را جستجو کرده و وارد آن شوید.
-          </li>
-          <li>
-            دکمه <strong>Start</strong> را بزنید یا دستور <code className="bg-black/10 dark:bg-white/10 px-1.5 py-0.5 rounded" dir="ltr">/newbot</code> را ارسال کنید.
-          </li>
-          <li>یک <strong>نام دلخواه</strong> برای ربات خود وارد کنید (مثلاً: ربات فروشگاه من).</li>
-          <li>
-            یک <strong>نام کاربری (Username)</strong> انگلیسی برای ربات بفرستید که حتماً باید با کلمه <code className="bg-black/10 dark:bg-white/10 px-1.5 py-0.5 rounded">bot</code> تمام شود (مثلاً: <code className="bg-black/10 dark:bg-white/10 px-1.5 py-0.5 rounded" dir="ltr">my_shop_bot</code>).
-          </li>
-          <li>
-            در پیام موفقیت‌آمیز بات‌فادر، یک متن قرمز رنگ یا متمایز وجود دارد که همان <strong>توکن ربات</strong> شماست (مشابه کادر زیر). آن را کپی کرده و اینجا وارد کنید.
-          </li>
+          <li>در تلگرام عبارت <a href="https://t.me/BotFather" target="_blank" className="font-medium text-blue-600 hover:underline" dir="ltr">@BotFather</a> را جستجو کرده و وارد آن شوید.</li>
+          <li>دستور <code className="bg-black/10 dark:bg-white/10 px-1.5 py-0.5 rounded" dir="ltr">/newbot</code> را ارسال کنید.</li>
+          <li>یک نام و سپس یک نام کاربری (Username) مختوم به <code className="bg-black/10 px-1.5 py-0.5 rounded">bot</code> بفرستید.</li>
+          <li>توکن ربات (متن قرمز رنگ) را کپی کرده و در کادر زیر وارد کنید.</li>
         </ol>
       </div>
 
@@ -59,25 +47,17 @@ export default async function BotsPage() {
       <div className="p-6 rounded-xl border bg-card text-card-foreground shadow-sm">
         <form action={addBotAction} className="flex gap-4 items-end flex-wrap sm:flex-nowrap">
           <div className="flex-1 space-y-2 w-full">
-            <label htmlFor="token" className="text-sm font-medium">
-              توکن ربات
-            </label>
-            <input
+            <label htmlFor="token" className="text-sm font-medium">توکن ربات</label>
+            <Input
               type="text"
               id="token"
               name="token"
               placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-left placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               dir="ltr"
               required
             />
           </div>
-          <button
-            type="submit"
-            className="h-10 px-6 py-2 w-full sm:w-auto bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors font-medium whitespace-nowrap"
-          >
-            افزودن ربات
-          </button>
+          <SubmitButton />
         </form>
       </div>
 
@@ -91,23 +71,7 @@ export default async function BotsPage() {
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
             {bots.map((bot) => (
-               <div key={bot.id} className="flex items-center justify-between p-4 border rounded-xl bg-card shadow-sm hover:shadow transition-shadow">
-                 <div>
-                   <p className="font-semibold text-lg" dir="ltr">@{bot.username}</p>
-                   <p className="text-xs font-medium mt-1 text-green-600 dark:text-green-400 flex items-center gap-1">
-                     <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                     {bot.isActive ? "فعال و متصل" : "غیرفعال"}
-                   </p>
-                 </div>
-                 <form action={deleteBotAction.bind(null, bot.id)}>
-                   <button 
-                     type="submit" 
-                     className="text-sm text-destructive hover:bg-destructive/10 px-3 py-2 rounded-md transition-colors font-medium"
-                   >
-                     حذف ربات
-                   </button>
-                 </form>
-               </div>
+              <BotCard key={bot.id} bot={bot} />
             ))}
           </div>
         )}
