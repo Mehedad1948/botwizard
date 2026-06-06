@@ -320,7 +320,41 @@ export async function handleCallbackQuery(callback_query: any, bot: Bot) {
         return;
     }
 
+        // 12. خروج ربات فرزند از یک گروه خاص
+    if (data.startsWith("leave_chat_")) {
+        const targetChatId = data.replace("leave_chat_", "");
+        try {
+            // ۱. ارسال دستور خروج به تلگرام
+            await callTelegramAPI("leaveChat", { chat_id: targetChatId }, bot.token);
 
+            // ۲. حذف از دیتابیس و توقف کمپین‌های آن گروه
+            await prisma.connectedChat.deleteMany({
+                where: { botId: bot.id, chatId: targetChatId }
+            });
+            await prisma.campaign.updateMany({
+                where: { botId: bot.id, chatId: targetChatId },
+                data: { isActive: false }
+            });
+
+            await callTelegramAPI("answerCallbackQuery", {
+                callback_query_id: callback_query.id,
+                text: "✅ ربات با موفقیت از گروه خارج شد.",
+                show_alert: true
+            }, bot.token);
+
+            // ۳. رفرش کردن لیست گروه‌ها
+            const { handleChatsCommand } = await import("./chats");
+            await handleChatsCommand(callback_query, bot, messageId);
+        } catch (error) {
+            console.error("Error leaving chat:", error);
+            await callTelegramAPI("answerCallbackQuery", {
+                callback_query_id: callback_query.id,
+                text: "❌ خطا در خروج از گروه (شاید ربات قبلاً حذف شده باشد).",
+                show_alert: true
+            }, bot.token);
+        }
+        return;
+    }
 
 
     await callTelegramAPI("answerCallbackQuery", { callback_query_id: callback_query.id }, bot.token);
