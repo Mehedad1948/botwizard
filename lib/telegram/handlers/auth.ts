@@ -74,10 +74,20 @@ export async function handleStartAndAuth(message: any, mainBotToken: string) {
         }
       });
 
+      // ۱. پیام موفقیت در ربات مادر
       await callTelegramAPI("sendMessage", { 
         chat_id: chat.id, 
         text: `✅ ربات شما (@${botInfo.result.username}) با موفقیت متصل و فعال شد!\n\n**مرحله بعد:**\n1. وارد ربات خودتان شوید: @${botInfo.result.username}\n2. ربات خودتان را در گروه‌ها و کانال‌های مورد نظر ادمین کنید.\n3. هر پستی که می‌خواهید را مستقیماً برای ربات *خودتان* بفرستید.` 
       }, mainBotToken);
+
+      // ۲. تلاش برای ارسال پیام از طرف ربات اختصاصی تازه متصل شده به کاربر
+      // توجه: اگر کاربر قبلا ربات خودش را Start نکرده باشد، تلگرام جلوی این پیام را می‌گیرد (به دلیل محدودیت‌های ضد-اسپم)
+      const welcomeMessageForOwnBot = `🎉 سلام! ربات شما با موفقیت به سیستم متصل شد.\n\nنحوه استفاده:\n۱. ابتدا این ربات را در گروه‌ها یا کانال‌های هدف خود عضو کرده و ادمین کنید.\n۲. پیام (متن، عکس، ویدیو و...) خود را همینجا برای من بفرستید.\n۳. من به شما دکمه‌های "ارسال فوری" و "زمان‌بندی" را نمایش می‌دهم.\n۴. برای مدیریت زمان‌بندی‌ها از دستور /campaigns استفاده کنید.`;
+      
+      await callTelegramAPI("sendMessage", {
+        chat_id: chat.id, // آیدی تلگرام کاربر
+        text: welcomeMessageForOwnBot
+      }, userToken);
 
     } catch (error) {
       console.error("Error adding bot:", error);
