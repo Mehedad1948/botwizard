@@ -1,42 +1,30 @@
+// src/lib/telegram/handlers/campaigns.ts
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import prisma from "@/lib/prisma";
 import { callTelegramAPI } from "../api";
+import { Bot } from "@prisma/client";
 
-export async function handleCampaignsCommand(message: any, botToken: string) {
+export async function handleCampaignsCommand(message: any, bot: Bot) {
   const chatId = message.chat.id;
-  const telegramId = message.from.id.toString();
 
   try {
-    const user = await prisma.user.findUnique({
-      where: { telegramId },
-      include: {
-        bots: {
-          include: {
-            campaigns: {
-              include: { post: true }
-            }
-          }
-        }
-      }
+    // Fetch campaigns directly using bot.id
+    const campaigns = await prisma.campaign.findMany({
+      where: { botId: bot.id },
+      include: { post: true }
     });
 
-    if (!user || user.bots.length === 0 || user.bots[0].campaigns.length === 0) {
+    if (campaigns.length === 0) {
       await callTelegramAPI("sendMessage", {
         chat_id: chatId,
         text: "📭 شما هیچ کمپین فعالی ندارید."
-      }, botToken);
+      }, bot.token);
       return;
     }
 
-    const campaigns = user.bots[0].campaigns;
-
     for (const camp of campaigns) {
-      // استفاده مستقیم از chatTitle دیتابیس به جای ریکوئست به تلگرام
       const groupName = camp.chatTitle || camp.chatId;
-
       const statusText = camp.isActive ? "✅ فعال" : "⏸ متوقف شده";
-      
-      // تغییر nextRunAt به nextRun (مطابق با اسکیما)
       const nextRunDate = camp.nextRun 
         ? new Date(camp.nextRun).toLocaleString("fa-IR") 
         : "نامشخص";
@@ -56,13 +44,13 @@ export async function handleCampaignsCommand(message: any, botToken: string) {
             ]
           ]
         }
-      }, botToken);
+      }, bot.token);
     }
   } catch (error) {
     console.error("Error fetching campaigns:", error);
     await callTelegramAPI("sendMessage", {
       chat_id: chatId,
       text: "❌ خطایی در دریافت لیست کمپین‌ها رخ داد."
-    }, botToken);
+    }, bot.token);
   }
 }

@@ -1,86 +1,87 @@
+// src/lib/telegram/handlers/auth.ts
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import prisma from "@/lib/prisma";
 import { callTelegramAPI } from "../api";
 
-export async function handleStartAndAuth(message: any, botToken: string) {
-  const { text, from, chat, contact } = message;
+export async function handleStartAndAuth(message: any, mainBotToken: string) {
+  const { text, from, chat } = message;
   const telegramId = from.id.toString();
-  const appUrl = "https://botwizard-oesj.vercel.app";
 
-  const guideText = `
-🤖 **راهنمای استفاده از دستیار هوشمند:**
+  const guideText = `🤖 **به ربات‌ساز خوش آمدید!**
 
-1️⃣ **اتصال گروه/کانال:** مرا به عنوان مدیر (Admin) به گروه یا کانال خود اضافه کنید تا بتوانم آنجا پست بگذارم.
-2️⃣ **ایجاد پست:** هر عکس، متن، ویدیو یا فایلی که دارید را به همین چت خصوصی بفرستید (یا فوروارد کنید).
-3️⃣ **انتشار:** به محض دریافت، به شما دکمه‌هایی می‌دهم تا آن را فوراً منتشر کنید یا در سایت برای آینده زمان‌بندی کنید.
-  `;
+برای ساخت ربات مدیریت محتوای خودتان:
 
-  if (contact && contact.phone_number) {
-    let phone = contact.phone_number;
-    if (phone.startsWith('+98')) phone = '0' + phone.slice(3);
-    if (phone.startsWith('98')) phone = '0' + phone.slice(2);
+1️⃣ به @BotFather بروید و یک ربات جدید بسازید.
+2️⃣ توکن API که دریافت می‌کنید را کپی کنید.
+3️⃣ توکن را با دستور زیر برای من بفرستید:
+\`/addbot 123456:ABC-DEF1234567890\`
 
-    const otp = Math.floor(10000 + Math.random() * 90000).toString();
-    const expires = new Date(Date.now() + 5 * 60 * 1000);
-
-    await prisma.user.update({
-      where: { telegramId },
-      data: { phone, otpCode: otp, otpExpires: expires },
-    });
-
-    await callTelegramAPI("sendMessage", {
-      chat_id: chat.id,
-      text: "✅ شماره شما با موفقیت تایید شد.",
-      reply_markup: { remove_keyboard: true }
-    }, botToken);
-
-    const loginUrl = `${appUrl}/login?step=verify&phone=${phone}`;
-    await callTelegramAPI("sendMessage", {
-      chat_id: chat.id,
-      text: `کد ورود شما: ${otp}\n\n${guideText}`,
-      parse_mode: "Markdown",
-      reply_markup: {
-        inline_keyboard: [[{ text: "🌐 ورود سریع به پنل کاربری", url: loginUrl }]]
-      }
-    }, botToken);
-    return;
-  }
+پس از آن، می‌توانید تمام پیام‌ها را به ربات *خودتان* بفرستید تا آن‌ها را مدیریت و ارسال کند.`;
 
   if (text && text.startsWith("/start")) {
-    const existingUser = await prisma.user.findUnique({
-      where: { telegramId },
-      select: { phone: true }
-    });
+     // ثبت کاربر در دیتابیس در صورت عدم وجود
+     await prisma.user.upsert({
+         where: { telegramId },
+         update: {},
+         create: { telegramId, role: "USER" }
+     });
+     
+     await callTelegramAPI("sendMessage", { 
+         chat_id: chat.id, 
+         text: guideText, 
+         parse_mode: 'Markdown' 
+     }, mainBotToken);
+     return;
+  }
 
-    if (existingUser && existingUser.phone) {
-      await callTelegramAPI("sendMessage", {
-        chat_id: chat.id,
-        text: `سلام مجدد! 👋\nشما قبلاً ثبت نام کرده‌اید.\n\n${guideText}`,
-        parse_mode: "Markdown",
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: "🌐 ورود به پنل کاربری", url: `${appUrl}/dashboard` }],
-            [{ text: "➕ ایجاد ربات جدید", url: `${appUrl}/dashboard/bots` }]
-          ]
-        }
-      }, botToken);
+  // Handle /addbot command
+  if (text && text.startsWith("/addbot ")) {
+    const userToken = text.split(" ")[1];
+
+    if (!userToken) {
+      await callTelegramAPI("sendMessage", { chat_id: chat.id, text: "❌ لطفاً توکن را بعد از دستور وارد کنید.", parse_mode: "Markdown" }, mainBotToken);
       return;
     }
 
-    await prisma.user.upsert({
-      where: { telegramId },
-      update: { firstName: from.first_name || "", lastName: from.last_name || null, username: from.username || null },
-      create: { telegramId, firstName: from.first_name || "", lastName: from.last_name || null, username: from.username || null },
-    });
+    try {
+      const botInfoRes = await fetch(`https://api.telegram.org/bot${userToken}/getMe`);
+      const botInfo = await botInfoRes.json();
 
-    await callTelegramAPI("sendMessage", {
-      chat_id: chat.id,
-      text: "سلام! 👋 به دستیار هوشمند مدیریت پست خوش آمدید.\n\nبرای استفاده از امکانات ربات و ورود به پنل، لطفاً شماره موبایل خود را از طریق دکمه زیر ارسال کنید 👇",
-      reply_markup: {
-        keyboard: [[{ text: "📱 ارسال شماره موبایل", request_contact: true }]],
-        resize_keyboard: true,
-        one_time_keyboard: true
+      if (!botInfo.ok) {
+        await callTelegramAPI("sendMessage", { chat_id: chat.id, text: "❌ توکن نامعتبر است. لطفاً از @BotFather یک توکن صحیح دریافت کنید." }, mainBotToken);
+        return;
       }
-    }, botToken);
+
+      const user = await prisma.user.findUnique({ where: { telegramId } });
+      if (!user) throw new Error("User not registered. Should send /start first.");
+
+      // CRITICAL STEP: Set the webhook for the user's bot
+      const webhookUrl = `https://${process.env.VERCEL_URL}/api/telegram/webhook/${userToken}`;
+      const setWebhookRes = await fetch(`https://api.telegram.org/bot${userToken}/setWebhook?url=${webhookUrl}`);
+      const setWebhookData = await setWebhookRes.json();
+
+      if (!setWebhookData.ok) {
+        console.error("Failed to set webhook:", setWebhookData);
+        throw new Error("Failed to set webhook for the new bot.");
+      }
+
+      // Save the bot to our database
+      await prisma.bot.create({
+        data: {
+          userId: user.id,
+          token: userToken,
+          username: botInfo.result.username
+        }
+      });
+
+      await callTelegramAPI("sendMessage", { 
+        chat_id: chat.id, 
+        text: `✅ ربات شما (@${botInfo.result.username}) با موفقیت متصل و فعال شد!\n\n**مرحله بعد:**\n1. وارد ربات خودتان شوید: @${botInfo.result.username}\n2. ربات خودتان را در گروه‌ها و کانال‌های مورد نظر ادمین کنید.\n3. هر پستی که می‌خواهید را مستقیماً برای ربات *خودتان* بفرستید.` 
+      }, mainBotToken);
+
+    } catch (error) {
+      console.error("Error adding bot:", error);
+      await callTelegramAPI("sendMessage", { chat_id: chat.id, text: "❌ خطایی در ثبت ربات رخ داد. ممکن است این توکن قبلا ثبت شده باشد." }, mainBotToken);
+    }
   }
 }
