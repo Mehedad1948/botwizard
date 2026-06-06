@@ -49,9 +49,13 @@ export async function handleCampaignsCommand(message: any, bot: Bot, editMessage
       text += `   🗓 **اجرای بعدی:** ${nextRunDate}\n\n`;
 
       // ایجاد دکمه‌ها برای هر ردیف
-      keyboard.push([
+     keyboard.push([
         { text: `🗑 حذف ${num}`, callback_data: `del_camp_${camp.id}` },
         { text: camp.isActive ? `⏸ توقف ${num}` : `▶️ فعال‌سازی ${num}`, callback_data: `tgl_camp_${camp.id}` }
+      ]);
+      // --- دکمه جدید برای مشاهده پست اضافه شد ---
+      keyboard.push([
+        { text: `👀 مشاهده پست ${num}`, callback_data: `view_post_${camp.postId}` }
       ]);
     });
 
