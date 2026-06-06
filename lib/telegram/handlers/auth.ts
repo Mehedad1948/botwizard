@@ -63,9 +63,13 @@ export async function handleStartAndAuth(message: any, mainBotToken: string) {
 
       // CRITICAL STEP: Set the webhook for the user's bot
       const webhookUrl = `${baseUrl}/api/telegram/webhook/${userToken}`;
+
+      console.log('🚀🚀🐞 webhookUrl', webhookUrl);
+      
       const setWebhookRes = await fetch(`https://api.telegram.org/bot${userToken}/setWebhook?url=${webhookUrl}`);
       const setWebhookData = await setWebhookRes.json();
-
+      console.log('🚀🚀🐞 setWebhookData', setWebhookData);
+      
       if (!setWebhookData.ok) {
         console.error("Failed to set webhook:", setWebhookData);
         throw new Error("Failed to set webhook for the new bot.");
