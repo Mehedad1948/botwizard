@@ -55,29 +55,29 @@ export async function handleStartAndAuth(message: any, mainBotToken: string) {
       const user = await prisma.user.findUnique({ where: { telegramId } });
       if (!user) throw new Error("User not registered. Should send /start first.");
 
-      // CRITICAL STEP: Set the webhook for the user's bot
-     const baseUrl = process.env.APP_BASE_URL ;
+      // حذف اسلش اضافه از انتهای آدرس در صورت وجود
+      const baseUrl = process.env.APP_BASE_URL?.replace(/\/$/, "");
       if (!baseUrl || baseUrl === "https://undefined") {
-          throw new Error("آدرس پایه سرور (APP_URL) در فایل .env تنظیم نشده است.");
+          throw new Error("آدرس پایه سرور در فایل .env تنظیم نشده است.");
       }
 
-      // CRITICAL STEP: Set the webhook for the user's bot
       const webhookUrl = `${baseUrl}/api/telegram/webhook/${userToken}`;
-
-      console.log('🚀🚀🐞 webhookUrl', webhookUrl);
       
       const setWebhookRes = await fetch(`https://api.telegram.org/bot${userToken}/setWebhook?url=${webhookUrl}`);
       const setWebhookData = await setWebhookRes.json();
-      console.log('🚀🚀🐞 setWebhookData', setWebhookData);
       
       if (!setWebhookData.ok) {
-        console.error("Failed to set webhook:", setWebhookData);
         throw new Error("Failed to set webhook for the new bot.");
       }
 
-      // Save the bot to our database
-      await prisma.bot.create({
-        data: {
+      // استفاده از upsert به جای create تا اگر توکن از قبل بود، آپدیت شود و ارور ندهد
+      await prisma.bot.upsert({
+        where: { token: userToken },
+        update: {
+          userId: user.id,
+          username: botInfo.result.username
+        },
+        create: {
           userId: user.id,
           token: userToken,
           username: botInfo.result.username
@@ -87,21 +87,26 @@ export async function handleStartAndAuth(message: any, mainBotToken: string) {
       // ۱. پیام موفقیت در ربات مادر
       await callTelegramAPI("sendMessage", { 
         chat_id: chat.id, 
-        text: `✅ ربات شما (@${botInfo.result.username}) با موفقیت متصل و فعال شد!\n\n**مرحله بعد:**\n1. وارد ربات خودتان شوید: @${botInfo.result.username}\n2. ربات خودتان را در گروه‌ها و کانال‌های مورد نظر ادمین کنید.\n3. هر پستی که می‌خواهید را مستقیماً برای ربات *خودتان* بفرستید.` 
+        text: `✅ ربات شما (@${botInfo.result.username}) با موفقیت متصل و فعال شد!\n\n**مرحله بعد:**\n1. وارد ربات خودتان شوید: @${botInfo.result.username}\n2. دستور /start را بفرستید.\n3. ربات خودتان را در گروه‌ها و کانال‌های مورد نظر ادمین کنید.` 
       }, mainBotToken);
 
-      // ۲. تلاش برای ارسال پیام از طرف ربات اختصاصی تازه متصل شده به کاربر
-      // توجه: اگر کاربر قبلا ربات خودش را Start نکرده باشد، تلگرام جلوی این پیام را می‌گیرد (به دلیل محدودیت‌های ضد-اسپم)
-      const welcomeMessageForOwnBot = `🎉 سلام! ربات شما با موفقیت به سیستم متصل شد.\n\nنحوه استفاده:\n۱. ابتدا این ربات را در گروه‌ها یا کانال‌های هدف خود عضو کرده و ادمین کنید.\n۲. پیام (متن، عکس، ویدیو و...) خود را همینجا برای من بفرستید.\n۳. من به شما دکمه‌های "ارسال فوری" و "زمان‌بندی" را نمایش می‌دهم.\n۴. برای مدیریت زمان‌بندی‌ها از دستور /campaigns استفاده کنید.`;
-      
-      await callTelegramAPI("sendMessage", {
-        chat_id: chat.id, // آیدی تلگرام کاربر
-        text: welcomeMessageForOwnBot
-      }, userToken);
+      // ۲. تلاش برای ارسال پیام از طرف ربات اختصاصی
+      // این بخش باید در try-catch جداگانه باشد تا در صورت عدم استارت ربات توسط کاربر، کل فرآیند کرش نکند
+      try {
+        const welcomeMessageForOwnBot = `🎉 سلام! ربات شما با موفقیت به سیستم متصل شد.\n\nنحوه استفاده:\n۱. ابتدا این ربات را در گروه‌ها یا کانال‌های هدف خود عضو کرده و ادمین کنید.\n۲. پیام (متن، عکس، ویدیو و...) خود را همینجا برای من بفرستید.\n۳. من به شما دکمه‌های "ارسال فوری" و "زمان‌بندی" را نمایش می‌دهم.\n۴. برای مدیریت زمان‌بندی‌ها از دستور /campaigns استفاده کنید.`;
+        
+        await callTelegramAPI("sendMessage", {
+          chat_id: chat.id,
+          text: welcomeMessageForOwnBot
+        }, userToken);
+      } catch (err) {
+        console.log("⚠️ کاربر هنوز ربات جدید را استارت نکرده است، پیام خوش‌آمدگویی مستقیم ارسال نشد.");
+      }
 
     } catch (error) {
       console.error("Error adding bot:", error);
-      await callTelegramAPI("sendMessage", { chat_id: chat.id, text: "❌ خطایی در ثبت ربات رخ داد. ممکن است این توکن قبلا ثبت شده باشد." }, mainBotToken);
+      await callTelegramAPI("sendMessage", { chat_id: chat.id, text: "❌ خطایی در ثبت ربات رخ داد." }, mainBotToken);
     }
+
   }
 }
