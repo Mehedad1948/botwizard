@@ -4,53 +4,74 @@ import prisma from "@/lib/prisma";
 import { callTelegramAPI } from "../api";
 import { Bot } from "@prisma/client";
 
-export async function handleCampaignsCommand(message: any, bot: Bot) {
-  const chatId = message.chat.id;
+export async function handleCampaignsCommand(message: any, bot: Bot, editMessageId?: number) {
+  const chatId = message.chat?.id || message.message?.chat?.id;
 
   try {
     const campaigns = await prisma.campaign.findMany({
       where: { botId: bot.id },
-      include: { post: true }
+      include: { post: true },
+      orderBy: { createdAt: 'asc' }
     });
 
     if (campaigns.length === 0) {
-      await callTelegramAPI("sendMessage", {
-        chat_id: chatId,
-        text: "📭 شما هیچ کمپین فعالی ندارید."
-      }, bot.token);
+      const text = "📭 شما هیچ کمپین فعالی ندارید.";
+      if (editMessageId) {
+          await callTelegramAPI("editMessageText", { chat_id: chatId, message_id: editMessageId, text }, bot.token);
+      } else {
+          await callTelegramAPI("sendMessage", { chat_id: chatId, text }, bot.token);
+      }
       return;
     }
 
-    for (const camp of campaigns) {
+    let text = "📋 **لیست کمپین‌های زمان‌بندی شده شما:**\n\n";
+    const keyboard: any[] = [];
+
+    campaigns.forEach((camp, index) => {
+      const num = index + 1;
       const groupName = camp.chatTitle || camp.chatId;
-      const statusText = camp.isActive ? "✅ فعال" : "⏸ متوقف شده";
+      const statusIcon = camp.isActive ? "✅" : "⏸";
+      
+      let scheduleText = "";
+      if (camp.scheduleType === "INTERVAL") {
+          scheduleText = `هر ${camp.intervalHours} ساعت`;
+      } else if (camp.scheduleType === "SPECIFIC_TIMES" && camp.specificTimes) {
+          scheduleText = `ساعات [${camp.specificTimes.join(", ")}]`;
+      }
+
       const nextRunDate = camp.nextRun 
         ? new Date(camp.nextRun).toLocaleString("fa-IR") 
         : "نامشخص";
 
-      // تشخیص نوع نمایش زمان‌بندی
-      let scheduleText = "";
-      if (camp.scheduleType === "INTERVAL") {
-          scheduleText = `هر ${camp.intervalHours} ساعت`;
-      } else if (camp.scheduleType === "SPECIFIC_TIMES") {
-          scheduleText = `ساعات ${camp.specificTimes.join(" و ")}`;
-      }
+      text += `${num}. ${statusIcon} **گروه:** ${groupName}\n`;
+      text += `   📝 **پست:** ${camp.post.content?.substring(0, 15)}...\n`;
+      text += `   ⏳ **تکرار:** ${scheduleText}\n`;
+      text += `   🗓 **اجرای بعدی:** ${nextRunDate}\n\n`;
 
-      const text = `📢 گروه: ${groupName}\n📝 پست: ${camp.post.content?.substring(0, 20)}...\n⏳ تکرار: ${scheduleText}\nوضعیت: ${statusText}\n🗓 اجرای بعدی: ${nextRunDate}`;
+      // ایجاد دکمه‌ها برای هر ردیف
+      keyboard.push([
+        { text: `🗑 حذف ${num}`, callback_data: `del_camp_${camp.id}` },
+        { text: camp.isActive ? `⏸ توقف ${num}` : `▶️ فعال‌سازی ${num}`, callback_data: `tgl_camp_${camp.id}` }
+      ]);
+    });
 
+    // در صورت نیاز دکمه بستن منو
+    keyboard.push([{ text: "❌ بستن لیست", callback_data: "close_menu" }]);
+
+    if (editMessageId) {
+      await callTelegramAPI("editMessageText", {
+        chat_id: chatId,
+        message_id: editMessageId,
+        text: text,
+        parse_mode: "Markdown",
+        reply_markup: { inline_keyboard: keyboard }
+      }, bot.token);
+    } else {
       await callTelegramAPI("sendMessage", {
         chat_id: chatId,
         text: text,
-        reply_markup: {
-          inline_keyboard: [
-            [
-              camp.isActive 
-                ? { text: "⏸ توقف", callback_data: `pause_camp_${camp.id}` }
-                : { text: "▶️ ادامه", callback_data: `resume_camp_${camp.id}` },
-              { text: "🗑 حذف", callback_data: `del_camp_${camp.id}` }
-            ]
-          ]
-        }
+        parse_mode: "Markdown",
+        reply_markup: { inline_keyboard: keyboard }
       }, bot.token);
     }
   } catch (error) {

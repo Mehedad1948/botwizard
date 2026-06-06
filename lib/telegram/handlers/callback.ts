@@ -3,6 +3,7 @@
 import prisma from "@/lib/prisma";
 import { callTelegramAPI } from "../api";
 import { Bot } from "@prisma/client";
+import { handleCampaignsCommand } from "./campaigns";
 
 export async function handleCallbackQuery(callback_query: any, bot: Bot) {
     const data = callback_query.data;
@@ -223,6 +224,68 @@ export async function handleCallbackQuery(callback_query: any, bot: Bot) {
         }
         return;
     }
+
+      if (data === "close_menu") {
+        await callTelegramAPI("deleteMessage", {
+            chat_id: chatId,
+            message_id: messageId
+        }, bot.token);
+        return;
+    }
+
+    // 9. حذف کمپین
+    if (data.startsWith("del_camp_")) {
+        const campId = data.replace("del_camp_", "");
+        try {
+            await prisma.campaign.delete({ where: { id: campId } });
+            
+            await callTelegramAPI("answerCallbackQuery", {
+                callback_query_id: callback_query.id,
+                text: "✅ کمپین با موفقیت حذف شد.",
+            }, bot.token);
+
+            // رفرش کردن لیست کمپین‌ها در همان پیام
+            await handleCampaignsCommand(callback_query, bot, messageId);
+        } catch (error) {
+            await callTelegramAPI("answerCallbackQuery", {
+                callback_query_id: callback_query.id,
+                text: "❌ خطا در حذف کمپین.",
+                show_alert: true
+            }, bot.token);
+        }
+        return;
+    }
+
+    // 10. توقف/فعال‌سازی کمپین
+    if (data.startsWith("tgl_camp_")) {
+        const campId = data.replace("tgl_camp_", "");
+        try {
+            const camp = await prisma.campaign.findUnique({ where: { id: campId } });
+            if (camp) {
+                await prisma.campaign.update({
+                    where: { id: campId },
+                    data: { isActive: !camp.isActive }
+                });
+
+                await callTelegramAPI("answerCallbackQuery", {
+                    callback_query_id: callback_query.id,
+                    text: !camp.isActive ? "✅ کمپین فعال شد." : "⏸ کمپین متوقف شد.",
+                }, bot.token);
+
+                // رفرش کردن لیست
+                await handleCampaignsCommand(callback_query, bot, messageId);
+            }
+        } catch (error) {
+            await callTelegramAPI("answerCallbackQuery", {
+                callback_query_id: callback_query.id,
+                text: "❌ خطا در تغییر وضعیت کمپین.",
+                show_alert: true
+            }, bot.token);
+        }
+        return;
+    }
+
+
 
     await callTelegramAPI("answerCallbackQuery", { callback_query_id: callback_query.id }, bot.token);
 }
