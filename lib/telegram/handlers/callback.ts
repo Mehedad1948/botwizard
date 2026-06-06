@@ -292,6 +292,35 @@ export async function handleCallbackQuery(callback_query: any, bot: Bot) {
         return;
     }
 
+        // 11. مشاهده محتوای پست
+    if (data.startsWith("view_post_")) {
+        const postId = data.replace("view_post_", "");
+        try {
+            const post = await prisma.post.findUnique({ where: { id: postId } });
+            
+            if (post) {
+                await callTelegramAPI("sendMessage", {
+                    chat_id: chatId,
+                    text: `📝 **محتوای پست شما:**\n\n${post.content}`,
+                    parse_mode: "Markdown"
+                }, bot.token);
+            } else {
+                await callTelegramAPI("answerCallbackQuery", {
+                    callback_query_id: callback_query.id,
+                    text: "❌ پست پیدا نشد.",
+                    show_alert: true
+                }, bot.token);
+                return;
+            }
+        } catch (error) {
+            console.error("Error viewing post:", error);
+        }
+        
+        await callTelegramAPI("answerCallbackQuery", { callback_query_id: callback_query.id }, bot.token);
+        return;
+    }
+
+
 
 
     await callTelegramAPI("answerCallbackQuery", { callback_query_id: callback_query.id }, bot.token);
