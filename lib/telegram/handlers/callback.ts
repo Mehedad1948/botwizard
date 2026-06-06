@@ -35,17 +35,14 @@ export async function handleCallbackQuery(callback_query: any, bot: Bot) {
     }
 
     if (data === "menu_campaigns") {
-        // فراخوانی لیست کمپین‌ها که قبلا داشتید
         await handleCampaignsCommand(callback_query, bot, messageId);
         return;
     }
 
     if (data === "menu_groups") {
-        // فراخوانی لیست گروه‌ها
         await handleChatsCommand(callback_query, bot, messageId);
         return;
     }
-
 
     // 1. Cancel
     if (data === "cancel_draft") {
@@ -77,6 +74,9 @@ export async function handleCallbackQuery(callback_query: any, bot: Bot) {
             [{ text: `⬜️ ${group.chatTitle}`, callback_data: `tgl_${action}_${draftId}_${group.chatId}` }]
         ));
 
+        // --- دکمه انتخاب همه اضافه شد ---
+        keyboard.push([{ text: "☑️ انتخاب همه", callback_data: `all_${action}_${draftId}` }]);
+        
         keyboard.push([{ text: "✅ تایید و ادامه", callback_data: `confirm_${action}_${draftId}` }]);
         keyboard.push([{ text: "🔙 لغو", callback_data: "cancel_draft" }]);
 
@@ -86,6 +86,63 @@ export async function handleCallbackQuery(callback_query: any, bot: Bot) {
             reply_markup: { inline_keyboard: keyboard }
         }, bot.token);
         return;
+    }
+
+    // --- 2.5 مدیریت کلیک روی "انتخاب همه" ---
+    if (data.startsWith("all_sn_") || data.startsWith("all_sch_")) {
+        const action = data.startsWith("all_sn_") ? "sn" : "sch";
+        const draftId = data.split("_")[2];
+        
+        const allGroups = await prisma.connectedChat.findMany({
+            where: { botId: bot.id }
+        });
+
+        if (allGroups.length === 0) {
+            await callTelegramAPI("answerCallbackQuery", {
+                callback_query_id: callback_query.id,
+                text: "⚠️ ربات در هیچ گروهی عضو نیست!",
+                show_alert: true
+            }, bot.token);
+            return;
+        }
+
+        const selectedChatIds = allGroups.map(g => g.chatId);
+
+        if (action === "sn") {
+            await callTelegramAPI("editMessageText", {
+                chat_id: chatId, message_id: messageId,
+                text: `🚀 در حال ارسال به ${selectedChatIds.length} گروه...\nلطفاً شکیبا باشید.`
+            }, bot.token);
+
+            let successCount = 0; let failCount = 0;
+            for (const targetChatId of selectedChatIds) {
+                try {
+                    const response = await callTelegramAPI("copyMessage", {
+                        chat_id: targetChatId, from_chat_id: chatId, message_id: parseInt(draftId, 10),
+                    }, bot.token);
+                    if (response && response.ok) successCount++; else failCount++;
+                } catch (e) { failCount++; }
+            }
+            await callTelegramAPI("editMessageText", {
+                chat_id: chatId, message_id: messageId,
+                text: `✅ ارسال فوری پایان یافت!\n\n✔️ موفق: ${successCount} گروه\n❌ ناموفق: ${failCount} گروه`
+            }, bot.token);
+            return;
+        } else if (action === "sch") {
+            const joinedChats = selectedChatIds.join(",");
+            const keyboard = [
+                [{ text: "⏳ تکرار دوره‌ای (فاصله ثابت)", callback_data: `sti_${draftId}?c=${joinedChats}`.substring(0, 64) }],
+                [{ text: "🕒 ارسال در ساعات خاص", callback_data: `sts_${draftId}?c=${joinedChats}`.substring(0, 64) }],
+                [{ text: "🔙 لغو", callback_data: "cancel_draft" }]
+            ];
+
+            await callTelegramAPI("editMessageText", {
+                chat_id: chatId, message_id: messageId,
+                text: `✅ تمامی ${selectedChatIds.length} گروه انتخاب شدند.\nنوع زمان‌بندی را انتخاب کنید:`,
+                reply_markup: { inline_keyboard: keyboard }
+            }, bot.token);
+            return;
+        }
     }
 
     // 3. Toggle Checkbox
@@ -137,7 +194,6 @@ export async function handleCallbackQuery(callback_query: any, bot: Bot) {
         }
 
         if (action === "sn") {
-            // ... (منطق ارسال فوری بدون تغییر باقی می‌ماند) ...
             await callTelegramAPI("editMessageText", {
                 chat_id: chatId, message_id: messageId,
                 text: `🚀 در حال ارسال به ${selectedChatIds.length} گروه...\nلطفاً شکیبا باشید.`
@@ -161,7 +217,6 @@ export async function handleCallbackQuery(callback_query: any, bot: Bot) {
 
         else if (action === "sch") {
             const joinedChats = selectedChatIds.join(",");
-            // اضافه شدن انتخاب نوع زمان‌بندی
             const keyboard = [
                 [{ text: "⏳ تکرار دوره‌ای (فاصله ثابت)", callback_data: `sti_${draftId}?c=${joinedChats}`.substring(0, 64) }],
                 [{ text: "🕒 ارسال در ساعات خاص", callback_data: `sts_${draftId}?c=${joinedChats}`.substring(0, 64) }],
@@ -206,7 +261,6 @@ export async function handleCallbackQuery(callback_query: any, bot: Bot) {
         const draftId = data.split("_")[1].split("?")[0];
         const chatIdsString = data.split("?c=")[1];
 
-        // ارسال پیام با force_reply برای دریافت ساعات
         await callTelegramAPI("sendMessage", {
             chat_id: chatId,
             text: `🕒 لطفاً ساعات مورد نظر خود را با فرمت HH:MM و با کاما جدا کرده و ارسال کنید.\n\nمثال: 10:00, 14:30, 22:00\n\n#SchData_${draftId}_${chatIdsString}`,
@@ -232,12 +286,10 @@ export async function handleCallbackQuery(callback_query: any, bot: Bot) {
 
             if (!latestPost) throw new Error("Post not found");
 
-            // --- اضافه شده: دریافت نام گروه‌ها از دیتابیس ---
             const connectedChats = await prisma.connectedChat.findMany({
                 where: { botId: bot.id, chatId: { in: targetGroups } }
             });
             const chatTitleMap = new Map(connectedChats.map(c => [c.chatId, c.chatTitle]));
-            // ------------------------------------------------
 
             for (const tId of targetGroups) {
                 await prisma.campaign.create({
@@ -245,7 +297,7 @@ export async function handleCallbackQuery(callback_query: any, bot: Bot) {
                         botId: bot.id,
                         postId: latestPost.id,
                         chatId: tId,
-                        chatTitle: chatTitleMap.get(tId) || "گروه ناشناس", // <-- اصلاح شد
+                        chatTitle: chatTitleMap.get(tId) || "گروه ناشناس",
                         scheduleType: "INTERVAL",
                         intervalHours: intervalNum,
                         isActive: true,
@@ -288,7 +340,6 @@ export async function handleCallbackQuery(callback_query: any, bot: Bot) {
                 text: "✅ کمپین با موفقیت حذف شد.",
             }, bot.token);
 
-            // رفرش کردن لیست کمپین‌ها در همان پیام
             await handleCampaignsCommand(callback_query, bot, messageId);
         } catch (error) {
             await callTelegramAPI("answerCallbackQuery", {
@@ -316,7 +367,6 @@ export async function handleCallbackQuery(callback_query: any, bot: Bot) {
                     text: !camp.isActive ? "✅ کمپین فعال شد." : "⏸ کمپین متوقف شد.",
                 }, bot.token);
 
-                // رفرش کردن لیست
                 await handleCampaignsCommand(callback_query, bot, messageId);
             }
         } catch (error) {
@@ -361,10 +411,8 @@ export async function handleCallbackQuery(callback_query: any, bot: Bot) {
     if (data.startsWith("leave_chat_")) {
         const targetChatId = data.replace("leave_chat_", "");
         try {
-            // ۱. ارسال دستور خروج به تلگرام
             await callTelegramAPI("leaveChat", { chat_id: targetChatId }, bot.token);
 
-            // ۲. حذف از دیتابیس و توقف کمپین‌های آن گروه
             await prisma.connectedChat.deleteMany({
                 where: { botId: bot.id, chatId: targetChatId }
             });
@@ -379,7 +427,6 @@ export async function handleCallbackQuery(callback_query: any, bot: Bot) {
                 show_alert: true
             }, bot.token);
 
-            // ۳. رفرش کردن لیست گروه‌ها
             const { handleChatsCommand } = await import("./chats");
             await handleChatsCommand(callback_query, bot, messageId);
         } catch (error) {
@@ -392,7 +439,6 @@ export async function handleCallbackQuery(callback_query: any, bot: Bot) {
         }
         return;
     }
-
 
     await callTelegramAPI("answerCallbackQuery", { callback_query_id: callback_query.id }, bot.token);
 }
