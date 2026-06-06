@@ -53,7 +53,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
         const keyboard = [
             [{ text: "📝 ایجاد پست جدید", callback_data: "menu_new_post" }],
             [{ text: "📊 مدیریت کمپین‌ها", callback_data: "menu_campaigns" }],
-            [{ text: "👥 مدیریت گروه‌ها", callback_data: "menu_groups" }]
+            [{ text: "👥 مدیریت گروه‌ها", callback_data: "menu_groups" }],
+             [{ text: "📖 آموزش استفاده", callback_data: "menu_help" }]
         ];
 
         await callTelegramAPI("sendMessage", {

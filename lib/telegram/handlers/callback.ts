@@ -21,6 +21,18 @@ export async function handleCallbackQuery(callback_query: any, bot: Bot) {
         await callTelegramAPI("answerCallbackQuery", { callback_query_id: callback_query.id }, bot.token);
         return;
     }
+    
+    if (data === "menu_help") {
+        const helpText = `📖 **راهنمای استفاده از ربات شما:**\n\n۱. ابتدا ربات را در گروه‌های مورد نظر خود عضو کرده و **دسترسی ادمین** بدهید.\n۲. ربات بلافاصله اتصال گروه را به شما اطلاع می‌دهد.\n۳. روی دکمه «📝 ایجاد پست جدید» کلیک کنید و محتوای خود را بفرستید.\n۴. گروه‌های هدف را انتخاب کرده و زمان‌بندی (فوری، دوره‌ای یا ساعات خاص) را تعیین کنید.\n۵. از بخش «📊 مدیریت کمپین‌ها» می‌توانید ارسال‌های خود را متوقف، فعال یا حذف کنید.`;
+        
+        await callTelegramAPI("sendMessage", {
+            chat_id: chatId,
+            text: helpText,
+            parse_mode: "Markdown"
+        }, bot.token);
+        await callTelegramAPI("answerCallbackQuery", { callback_query_id: callback_query.id }, bot.token);
+        return;
+    }
 
     if (data === "menu_campaigns") {
         // فراخوانی لیست کمپین‌ها که قبلا داشتید

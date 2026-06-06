@@ -68,12 +68,15 @@ export async function handleMainBotMessage(message: any, mainBotToken: string) {
       reply_markup: {
         inline_keyboard: [
           [{ text: "➕ افزودن ربات جدید", callback_data: "main_prompt_addbot" }],
-          [{ text: "🤖 مدیریت ربات‌های من", callback_data: "main_mybots" }]
+          [{ text: "🤖 مدیریت ربات‌های من", callback_data: "main_mybots" }],
+            [{ text: "📖 آموزش استفاده", callback_data: "main_help" }] 
         ]
       }
     }, mainBotToken);
     return;
   }
+
+  
 
   // ۲. تشخیص خودکار توکن (بهترین UX)
   // اگر متن ارسال شده فرمت توکن تلگرام را داشته باشد (مثلا 123456789:ABCDefgh...)
@@ -106,6 +109,17 @@ export async function handleMainBotCallback(callback_query: any, mainBotToken: s
       text: "🔑 **لطفاً توکنی که از @BotFather دریافت کرده‌اید را کپی کرده و همینجا (بدون هیچ کلمه اضافه‌ای) Paste کنید:**\n\nمثال:\n`1234567890:ABC-DEF1234567890abcdef`",
       parse_mode: 'Markdown',
       reply_markup: { force_reply: true } // این ویژگی باعث می‌شود کیبورد کاربر برای ریپلای باز شود
+    }, mainBotToken);
+    await callTelegramAPI("answerCallbackQuery", { callback_query_id: callback_query.id }, mainBotToken);
+    return;
+  }
+
+    if (data === "main_help") {
+    const helpText = `📖 **راهنمای استفاده از ربات‌ساز:**\n\n۱. ابتدا یک ربات در @BotFather بسازید و توکن آن را کپی کنید.\n۲. روی «➕ افزودن ربات جدید» کلیک کرده و توکن را بفرستید.\n۳. پس از ثبت موفق، وارد ربات خود شوید و /start را بزنید.\n۴. ربات خود را در گروه‌های مورد نظرتان ادمین کنید.\n۵. در ربات خودتان، متن یا مدیا را ارسال کرده و به راحتی زمان‌بندی کنید.`;
+    await callTelegramAPI("sendMessage", {
+      chat_id: chatId,
+      text: helpText,
+      parse_mode: 'Markdown'
     }, mainBotToken);
     await callTelegramAPI("answerCallbackQuery", { callback_query_id: callback_query.id }, mainBotToken);
     return;
