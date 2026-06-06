@@ -8,7 +8,6 @@ export async function handleCampaignsCommand(message: any, bot: Bot) {
   const chatId = message.chat.id;
 
   try {
-    // Fetch campaigns directly using bot.id
     const campaigns = await prisma.campaign.findMany({
       where: { botId: bot.id },
       include: { post: true }
@@ -29,7 +28,15 @@ export async function handleCampaignsCommand(message: any, bot: Bot) {
         ? new Date(camp.nextRun).toLocaleString("fa-IR") 
         : "نامشخص";
 
-      const text = `📢 گروه: ${groupName}\n📝 پست: ${camp.post.content?.substring(0, 20)}...\n⏳ تکرار: هر ${camp.intervalHours} ساعت\nوضعیت: ${statusText}\n🗓 اجرای بعدی: ${nextRunDate}`;
+      // تشخیص نوع نمایش زمان‌بندی
+      let scheduleText = "";
+      if (camp.scheduleType === "INTERVAL") {
+          scheduleText = `هر ${camp.intervalHours} ساعت`;
+      } else if (camp.scheduleType === "SPECIFIC_TIMES") {
+          scheduleText = `ساعات ${camp.specificTimes.join(" و ")}`;
+      }
+
+      const text = `📢 گروه: ${groupName}\n📝 پست: ${camp.post.content?.substring(0, 20)}...\n⏳ تکرار: ${scheduleText}\nوضعیت: ${statusText}\n🗓 اجرای بعدی: ${nextRunDate}`;
 
       await callTelegramAPI("sendMessage", {
         chat_id: chatId,
