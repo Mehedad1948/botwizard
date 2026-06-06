@@ -4,11 +4,36 @@ import prisma from "@/lib/prisma";
 import { callTelegramAPI } from "../api";
 import { Bot } from "@prisma/client";
 import { handleCampaignsCommand } from "./campaigns";
+import { handleChatsCommand } from "./chats";
 
 export async function handleCallbackQuery(callback_query: any, bot: Bot) {
     const data = callback_query.data;
     const chatId = callback_query.message.chat.id;
     const messageId = callback_query.message.message_id;
+
+
+    if (data === "menu_new_post") {
+        await callTelegramAPI("sendMessage", {
+            chat_id: chatId,
+            text: "✍️ **برای ایجاد پست جدید:**\nکافیست متن، عکس یا ویدیوی خود را همینجا ارسال کنید تا مراحل زمان‌بندی آغاز شود.",
+            parse_mode: "Markdown"
+        }, bot.token);
+        await callTelegramAPI("answerCallbackQuery", { callback_query_id: callback_query.id }, bot.token);
+        return;
+    }
+
+    if (data === "menu_campaigns") {
+        // فراخوانی لیست کمپین‌ها که قبلا داشتید
+        await handleCampaignsCommand(callback_query, bot, messageId);
+        return;
+    }
+
+    if (data === "menu_groups") {
+        // فراخوانی لیست گروه‌ها
+        await handleChatsCommand(callback_query, bot, messageId);
+        return;
+    }
+
 
     // 1. Cancel
     if (data === "cancel_draft") {
@@ -292,12 +317,12 @@ export async function handleCallbackQuery(callback_query: any, bot: Bot) {
         return;
     }
 
-        // 11. مشاهده محتوای پست
+    // 11. مشاهده محتوای پست
     if (data.startsWith("view_post_")) {
         const postId = data.replace("view_post_", "");
         try {
             const post = await prisma.post.findUnique({ where: { id: postId } });
-            
+
             if (post) {
                 await callTelegramAPI("sendMessage", {
                     chat_id: chatId,
@@ -315,12 +340,12 @@ export async function handleCallbackQuery(callback_query: any, bot: Bot) {
         } catch (error) {
             console.error("Error viewing post:", error);
         }
-        
+
         await callTelegramAPI("answerCallbackQuery", { callback_query_id: callback_query.id }, bot.token);
         return;
     }
 
-        // 12. خروج ربات فرزند از یک گروه خاص
+    // 12. خروج ربات فرزند از یک گروه خاص
     if (data.startsWith("leave_chat_")) {
         const targetChatId = data.replace("leave_chat_", "");
         try {

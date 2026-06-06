@@ -2,7 +2,7 @@
 // src/app/api/telegram/webhook/[token]/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { handleMainBotMessage, handleMainBotCallback } from "@/lib/telegram/handlers/main"; // آپدیت شد
+import { handleMainBotMessage, handleMainBotCallback } from "@/lib/telegram/handlers/main";
 import { handleDraftPost } from "@/lib/telegram/handlers/draft";
 import { handleGroupAddition } from "@/lib/telegram/handlers/group";
 import { handleCallbackQuery } from "@/lib/telegram/handlers/callback";
@@ -36,10 +36,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
 
     if (!bot) return NextResponse.json({ ok: false, error: "Bot not found" });
 
-    // جلوگیری از کار کردن ربات در صورت غیرفعال بودن (Deactivated) توسط مادر
-    // نکته: نیاز به فیلد isActive در دیتابیس (Prisma Schema) برای مدل Bot دارید.
+    // جلوگیری از کار کردن ربات در صورت غیرفعال بودن
     if ((bot as any).isActive === false) { 
-        return NextResponse.json({ ok: true }); // Ignore quietly
+        return NextResponse.json({ ok: true }); 
     }
 
     const fromId = (update.message?.from?.id || update.callback_query?.from?.id || update.my_chat_member?.from?.id)?.toString();
@@ -48,9 +47,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     // Route updates for User Bots
     if (update.message) {
       const text = update.message.text;
+      
       if (text === "/start") {
-        const welcomeMessage = `🎉 به ربات اختصاصی خودتان خوش آمدید!\n...`; // پیام خودتان
-        await callTelegramAPI('sendMessage', { chat_id: update.message.chat.id, text: welcomeMessage }, bot.token);
+        const textMsg = "🤖 **به پنل مدیریت ربات خود خوش آمدید.**\n\nلطفاً یکی از گزینه‌های زیر را انتخاب کنید:";
+        const keyboard = [
+            [{ text: "📝 ایجاد پست جدید", callback_data: "menu_new_post" }],
+            [{ text: "📊 مدیریت کمپین‌ها", callback_data: "menu_campaigns" }],
+            [{ text: "👥 مدیریت گروه‌ها", callback_data: "menu_groups" }]
+        ];
+
+        await callTelegramAPI("sendMessage", {
+            chat_id: update.message.chat.id,
+            text: textMsg,
+            parse_mode: "Markdown",
+            reply_markup: { inline_keyboard: keyboard }
+        }, bot.token);
       } else if (text && text.startsWith("/campaigns")) {
         await handleCampaignsCommand(update.message, bot);
       } else {
