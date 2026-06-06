@@ -103,9 +103,17 @@ export async function handleStartAndAuth(message: any, mainBotToken: string) {
         console.log("⚠️ کاربر هنوز ربات جدید را استارت نکرده است، پیام خوش‌آمدگویی مستقیم ارسال نشد.");
       }
 
-    } catch (error) {
+    }catch (error: any) {
       console.error("Error adding bot:", error);
-      await callTelegramAPI("sendMessage", { chat_id: chat.id, text: "❌ خطایی در ثبت ربات رخ داد." }, mainBotToken);
+      
+      // استخراج متن خطا
+      const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+      
+      await callTelegramAPI("sendMessage", { 
+        chat_id: chat.id, 
+        text: `❌ خطایی در ثبت ربات رخ داد:\n\n\`${errorMessage}\``,
+        parse_mode: 'Markdown'
+      }, mainBotToken);
     }
 
   }
