@@ -6,27 +6,27 @@ import { Bot } from "@prisma/client";
 
 // تابع کمکی برای پیدا کردن نزدیک‌ترین زمان اجرای بعدی
 function calculateNextRunForSpecificTimes(times: string[]): Date {
-    const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-    const currentTimeStr = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`;
+  const now = new Date();
+  const currentHour = now.getHours();
+  const currentMinute = now.getMinutes();
+  const currentTimeStr = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`;
 
-    const sortedTimes = [...times].sort();
-    let nextTime = sortedTimes.find(t => t > currentTimeStr);
-    const nextRunDate = new Date(now);
+  const sortedTimes = [...times].sort();
+  let nextTime = sortedTimes.find(t => t > currentTimeStr);
+  const nextRunDate = new Date(now);
 
-    if (nextTime) {
-        // اجرا در همین امروز
-        const [h, m] = nextTime.split(":");
-        nextRunDate.setHours(parseInt(h), parseInt(m), 0, 0);
-    } else {
-        // اجرا در فردا (ساعات امروز گذشته‌اند)
-        nextTime = sortedTimes[0];
-        const [h, m] = nextTime.split(":");
-        nextRunDate.setDate(nextRunDate.getDate() + 1);
-        nextRunDate.setHours(parseInt(h), parseInt(m), 0, 0);
-    }
-    return nextRunDate;
+  if (nextTime) {
+    // اجرا در همین امروز
+    const [h, m] = nextTime.split(":");
+    nextRunDate.setHours(parseInt(h), parseInt(m), 0, 0);
+  } else {
+    // اجرا در فردا (ساعات امروز گذشته‌اند)
+    nextTime = sortedTimes[0];
+    const [h, m] = nextTime.split(":");
+    nextRunDate.setDate(nextRunDate.getDate() + 1);
+    nextRunDate.setHours(parseInt(h), parseInt(m), 0, 0);
+  }
+  return nextRunDate;
 }
 
 export async function handleDraftPost(message: any, bot: Bot) {
@@ -34,73 +34,80 @@ export async function handleDraftPost(message: any, bot: Bot) {
 
   // ۱. بررسی پاسخ به پیامِ تعیین ساعات خاص (force_reply)
   if (message.reply_to_message && message.reply_to_message.text?.includes("#SchData_")) {
-      const replyText = message.reply_to_message.text;
-      const dataMatch = replyText.match(/#SchData_(\d+)_([0-9,\-]+)/);
-      
-      if (dataMatch) {
-          const targetGroups = dataMatch[2].split(",");
-          const userTimes = message.text || "";
+    const replyText = message.reply_to_message.text;
+    const dataMatch = replyText.match(/#SchData_(\d+)_([0-9,\-]+)/);
 
-          // اعتبارسنجی فرمت زمان‌ها (HH:MM)
-          const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
-          const parsedTimes = userTimes.split(",")
-              .map((t: string) => t.trim())
-              .filter((t: string) => timeRegex.test(t));
+    if (dataMatch) {
+      const targetGroups = dataMatch[2].split(",");
+      const userTimes = message.text || "";
 
-          if (parsedTimes.length === 0) {
-              await callTelegramAPI("sendMessage", {
-                  chat_id: chatId,
-                  text: "❌ فرمت ساعات نامعتبر است. لطفاً دقیقاً مانند مثال وارد کنید (مثال: 10:00, 18:30).",
-                  reply_to_message_id: message.message_id
-              }, bot.token);
-              return;
-          }
+      // اعتبارسنجی فرمت زمان‌ها (HH:MM)
+      const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+      const parsedTimes = userTimes.split(",")
+        .map((t: string) => t.trim())
+        .filter((t: string) => timeRegex.test(t));
 
-          try {
-              const latestPost = await prisma.post.findFirst({
-                  where: { botId: bot.id },
-                  orderBy: { createdAt: 'desc' }
-              });
-
-              if (!latestPost) throw new Error("Post not found");
-
-              const nextRun = calculateNextRunForSpecificTimes(parsedTimes);
-
-              for (const tId of targetGroups) {
-                  await prisma.campaign.create({
-                      data: {
-                          botId: bot.id,
-                          postId: latestPost.id,
-                          chatId: tId,
-                          chatTitle: "گروه انتخاب شده",
-                          scheduleType: "SPECIFIC_TIMES",
-                          specificTimes: parsedTimes, // ذخیره آرایه زمان‌ها
-                          isActive: true,
-                          nextRun: nextRun,
-                      }
-                  });
-              }
-
-              await callTelegramAPI("sendMessage", {
-                  chat_id: chatId,
-                  text: `✅ زمان‌بندی با موفقیت انجام شد.\nپست شما در ${targetGroups.length} گروه هر روز در ساعات [${parsedTimes.join(" - ")}] ارسال خواهد شد.`
-              }, bot.token);
-
-          } catch (error: any) {
-    console.error("Error creating specific times campaign:", error);
-    
-    // استخراج متن خطا
-    const errorMessage = error?.message || String(error);
-
-    // TODO: Remove the error message from the response for security/cleanliness in production
-    await callTelegramAPI("sendMessage", {
-        chat_id: chatId,
-        text: `❌ خطایی در ذخیره زمان‌بندی رخ داد.\n\nجزئیات خطا:\n${errorMessage}`
-    }, bot.token);
-}
-
-          return;
+      if (parsedTimes.length === 0) {
+        await callTelegramAPI("sendMessage", {
+          chat_id: chatId,
+          text: "❌ فرمت ساعات نامعتبر است. لطفاً دقیقاً مانند مثال وارد کنید (مثال: 10:00, 18:30).",
+          reply_to_message_id: message.message_id
+        }, bot.token);
+        return;
       }
+
+      try {
+        const latestPost = await prisma.post.findFirst({
+          where: { botId: bot.id },
+          orderBy: { createdAt: 'desc' }
+        });
+
+        if (!latestPost) throw new Error("Post not found");
+
+        const nextRun = calculateNextRunForSpecificTimes(parsedTimes);
+
+        // --- اضافه شده: دریافت نام گروه‌ها از دیتابیس ---
+        const connectedChats = await prisma.connectedChat.findMany({
+          where: { botId: bot.id, chatId: { in: targetGroups } }
+        });
+        const chatTitleMap = new Map(connectedChats.map(c => [c.chatId, c.chatTitle]));
+        // ------------------------------------------------
+
+        for (const tId of targetGroups) {
+          await prisma.campaign.create({
+            data: {
+              botId: bot.id,
+              postId: latestPost.id,
+              chatId: tId,
+              chatTitle: chatTitleMap.get(tId) || "گروه ناشناس", // <-- اصلاح شد
+              scheduleType: "SPECIFIC_TIMES",
+              specificTimes: parsedTimes,
+              isActive: true,
+              nextRun: nextRun,
+            }
+          });
+        }
+
+        await callTelegramAPI("sendMessage", {
+          chat_id: chatId,
+          text: `✅ زمان‌بندی با موفقیت انجام شد.\nپست شما در ${targetGroups.length} گروه هر روز در ساعات [${parsedTimes.join(" - ")}] ارسال خواهد شد.`
+        }, bot.token);
+
+      } catch (error: any) {
+        console.error("Error creating specific times campaign:", error);
+
+        // استخراج متن خطا
+        const errorMessage = error?.message || String(error);
+
+        // TODO: Remove the error message from the response for security/cleanliness in production
+        await callTelegramAPI("sendMessage", {
+          chat_id: chatId,
+          text: `❌ خطایی در ذخیره زمان‌بندی رخ داد.\n\nجزئیات خطا:\n${errorMessage}`
+        }, bot.token);
+      }
+
+      return;
+    }
   }
 
   // ۲. منطق دریافت پیام پیش‌نویس جدید
@@ -111,7 +118,7 @@ export async function handleDraftPost(message: any, bot: Bot) {
       await prisma.post.create({
         data: {
           botId: bot.id,
-          content: message.text || "مدیا/فایل", 
+          content: message.text || "مدیا/فایل",
         }
       });
 

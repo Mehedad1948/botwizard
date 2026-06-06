@@ -144,7 +144,7 @@ export async function handleCallbackQuery(callback_query: any, bot: Bot) {
     if (data.startsWith("sti_")) {
         const draftId = data.split("_")[1].split("?")[0];
         const chatIdsString = data.split("?c=")[1];
-        
+
         const intervals = [
             { label: "هر ۲ ساعت", hours: 2 },
             { label: "هر ۱۲ ساعت", hours: 12 },
@@ -175,7 +175,7 @@ export async function handleCallbackQuery(callback_query: any, bot: Bot) {
             text: `🕒 لطفاً ساعات مورد نظر خود را با فرمت HH:MM و با کاما جدا کرده و ارسال کنید.\n\nمثال: 10:00, 14:30, 22:00\n\n#SchData_${draftId}_${chatIdsString}`,
             reply_markup: { force_reply: true }
         }, bot.token);
-        
+
         await callTelegramAPI("answerCallbackQuery", { callback_query_id: callback_query.id }, bot.token);
         return;
     }
@@ -195,14 +195,21 @@ export async function handleCallbackQuery(callback_query: any, bot: Bot) {
 
             if (!latestPost) throw new Error("Post not found");
 
+            // --- اضافه شده: دریافت نام گروه‌ها از دیتابیس ---
+            const connectedChats = await prisma.connectedChat.findMany({
+                where: { botId: bot.id, chatId: { in: targetGroups } }
+            });
+            const chatTitleMap = new Map(connectedChats.map(c => [c.chatId, c.chatTitle]));
+            // ------------------------------------------------
+
             for (const tId of targetGroups) {
                 await prisma.campaign.create({
                     data: {
                         botId: bot.id,
                         postId: latestPost.id,
                         chatId: tId,
-                        chatTitle: "گروه انتخاب شده",
-                        scheduleType: "INTERVAL", // افزوده شد
+                        chatTitle: chatTitleMap.get(tId) || "گروه ناشناس", // <-- اصلاح شد
+                        scheduleType: "INTERVAL",
                         intervalHours: intervalNum,
                         isActive: true,
                         nextRun: new Date(Date.now() + intervalNum * 60 * 60 * 1000),
@@ -225,7 +232,7 @@ export async function handleCallbackQuery(callback_query: any, bot: Bot) {
         return;
     }
 
-      if (data === "close_menu") {
+    if (data === "close_menu") {
         await callTelegramAPI("deleteMessage", {
             chat_id: chatId,
             message_id: messageId
@@ -238,7 +245,7 @@ export async function handleCallbackQuery(callback_query: any, bot: Bot) {
         const campId = data.replace("del_camp_", "");
         try {
             await prisma.campaign.delete({ where: { id: campId } });
-            
+
             await callTelegramAPI("answerCallbackQuery", {
                 callback_query_id: callback_query.id,
                 text: "✅ کمپین با موفقیت حذف شد.",
