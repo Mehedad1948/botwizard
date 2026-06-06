@@ -1,6 +1,6 @@
 // src/app/api/telegram/webhook/route.ts
 import { NextResponse } from "next/server";
-import { handleStartAndAuth } from "@/lib/telegram/handlers/auth";
+import { handleMainBotMessage, handleMainBotCallback } from "@/lib/telegram/handlers/main";
 
 export async function POST(req: Request) {
   try {
@@ -11,9 +11,14 @@ export async function POST(req: Request) {
 
     console.log(`[Main Bot Webhook Update]`, update);
 
+    // ۱. پردازش پیام‌های متنی ربات مادر
     if (update.message) {
-      // پاس دادن پیام به هندلر ربات مادر (آموزش، دریافت توکن، ایجاد دکمه شیشه‌ای)
-      await handleStartAndAuth(update.message, mainBotToken);
+      await handleMainBotMessage(update.message, mainBotToken);
+    }
+    
+    // ۲. پردازش کلیک روی دکمه‌های شیشه‌ای (Callback Queries) ربات مادر
+    if (update.callback_query) {
+      await handleMainBotCallback(update.callback_query, mainBotToken);
     }
 
     return NextResponse.json({ ok: true });
