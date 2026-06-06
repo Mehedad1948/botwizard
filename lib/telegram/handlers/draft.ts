@@ -113,12 +113,14 @@ export async function handleDraftPost(message: any, bot: Bot) {
   // ۲. منطق دریافت پیام پیش‌نویس جدید
   if (message.chat.type === "private" && !message.text?.startsWith("/")) {
     const draftId = message.message_id;
-
+    const textPreview = message.text || message.caption || "🖼 مدیا/فایل";
     try {
       await prisma.post.create({
         data: {
           botId: bot.id,
-          content: message.text || "مدیا/فایل",
+          content: textPreview, 
+          sourceChatId: chatId.toString(),
+          sourceMessageId: draftId,
         }
       });
 
