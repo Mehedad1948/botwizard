@@ -371,6 +371,25 @@ There is no test script or test suite.
 `components.json` points to `app/globals.css`, but the actual stylesheet is
 `app/tailwindcss.css`. Account for this when generating new shadcn components.
 
+## Error Handling
+
+- `app/not-found.tsx` handles unmatched routes and general `notFound()` calls.
+- `app/error.tsx` is the root route-segment boundary for unexpected runtime
+  errors.
+- `app/global-error.tsx` replaces the root layout when the layout itself fails;
+  it imports global CSS and defines its own `<html>` and `<body>`.
+- `app/(dashboard)/error.tsx` keeps dashboard failures inside the authenticated
+  shell and offers retry plus safe navigation.
+- `app/(dashboard)/dashboard/bots/[botId]/not-found.tsx` handles missing,
+  deleted, or unauthorized bot IDs without revealing which case occurred.
+- Error boundaries use Next.js 16.2's `unstable_retry()` prop. Expected
+  validation and mutation failures should still be returned as visible action
+  state rather than thrown.
+- Client-visible error pages never render raw exception messages. They log the
+  error and show only the optional Next.js digest as a support reference.
+- `components/errors/ErrorState.tsx` is the shared RTL presentation component
+  for full-page and dashboard-scoped error states.
+
 ## Security and Correctness Risks
 
 Treat these as known issues, not established design choices:
