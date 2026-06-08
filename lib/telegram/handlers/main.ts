@@ -1,4 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import {
+  generateLoginToken,
+  hashLoginToken,
+  normalizeIranianPhone,
+} from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { callTelegramAPI } from "../api";
 
@@ -49,15 +54,154 @@ async function processNewBotToken(chatId: string, telegramId: string, userToken:
 
 // --- مدیریت پیام‌های متنی ربات مادر ---
 export async function handleMainBotMessage(message: any, mainBotToken: string) {
-  const { text, from, chat } = message;
+  const { contact, text, from, chat } = message;
   const telegramId = from.id.toString();
+
+  if (contact) {
+    if (contact.user_id && contact.user_id.toString() !== telegramId) {
+      await callTelegramAPI(
+        "sendMessage",
+        {
+          chat_id: chat.id,
+          text: "❌ لطفاً فقط شماره موبایل متعلق به حساب تلگرام خودتان را با دکمه «اشتراک شماره من» ارسال کنید.",
+        },
+        mainBotToken
+      );
+      return;
+    }
+
+    const phone = normalizeIranianPhone(contact.phone_number);
+
+    if (!phone) {
+      await callTelegramAPI(
+        "sendMessage",
+        {
+          chat_id: chat.id,
+          text: "❌ شماره موبایل دریافت‌شده معتبر نیست. در حال حاضر فقط شماره‌های موبایل ایران پشتیبانی می‌شوند.",
+        },
+        mainBotToken
+      );
+      return;
+    }
+
+    const [telegramUser, phoneUser] = await Promise.all([
+      prisma.user.findUnique({ where: { telegramId } }),
+      prisma.user.findUnique({ where: { phone } }),
+    ]);
+
+    if (
+      (phoneUser && telegramUser && phoneUser.id !== telegramUser.id) ||
+      (phoneUser?.telegramId && phoneUser.telegramId !== telegramId) ||
+      (telegramUser?.phone && telegramUser.phone !== phone)
+    ) {
+      await callTelegramAPI(
+        "sendMessage",
+        {
+          chat_id: chat.id,
+          text: "❌ این شماره قبلاً به حساب دیگری متصل شده است. برای بررسی حساب با پشتیبانی تماس بگیرید.",
+        },
+        mainBotToken
+      );
+      return;
+    }
+
+    const user = telegramUser
+      ? await prisma.user.update({
+          where: { id: telegramUser.id },
+          data: {
+            phone,
+            firstName: from.first_name ?? telegramUser.firstName,
+            lastName: from.last_name ?? telegramUser.lastName,
+            username: from.username ?? telegramUser.username,
+          },
+        })
+      : phoneUser
+        ? await prisma.user.update({
+            where: { id: phoneUser.id },
+            data: {
+              telegramId,
+              firstName: from.first_name ?? phoneUser.firstName,
+              lastName: from.last_name ?? phoneUser.lastName,
+              username: from.username ?? phoneUser.username,
+            },
+          })
+        : await prisma.user.create({
+            data: {
+              telegramId,
+              phone,
+              firstName: from.first_name,
+              lastName: from.last_name,
+              username: from.username,
+            },
+          });
+
+    const rawLoginToken = generateLoginToken();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_BASE_URL?.replace(/\/$/, "") ||
+      "https://botwizard-oesj.vercel.app";
+
+    await prisma.$transaction([
+      prisma.loginToken.deleteMany({ where: { userId: user.id } }),
+      prisma.loginToken.create({
+        data: {
+          userId: user.id,
+          tokenHash: hashLoginToken(rawLoginToken),
+          expiresAt,
+        },
+      }),
+    ]);
+
+    await callTelegramAPI(
+      "sendMessage",
+      {
+        chat_id: chat.id,
+        text: "✅ شماره موبایل شما با موفقیت تأیید شد.",
+        reply_markup: {
+          remove_keyboard: true,
+        },
+      },
+      mainBotToken
+    );
+
+    await callTelegramAPI(
+      "sendMessage",
+      {
+        chat_id: chat.id,
+        text: "🔐 <b>ورود امن به پنل</b>\n\nدکمه زیر فقط یک‌بار و تا ۵ دقیقه قابل استفاده است.",
+        parse_mode: "HTML",
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: "ورود امن به پنل",
+                url: `${baseUrl}/api/auth/telegram-link?token=${encodeURIComponent(rawLoginToken)}`,
+              },
+            ],
+          ],
+        },
+      },
+      mainBotToken
+    );
+    return;
+  }
 
   // ۱. دستور /start (منوی اصلی با دکمه‌های شیشه‌ای)
   if (text && text.startsWith("/start")) {
-    await prisma.user.upsert({
+    const user = await prisma.user.upsert({
       where: { telegramId },
-      update: {},
-      create: { telegramId, role: "USER" }
+      update: {
+        firstName: from.first_name,
+        lastName: from.last_name,
+        username: from.username,
+      },
+      create: {
+        telegramId,
+        firstName: from.first_name,
+        lastName: from.last_name,
+        username: from.username,
+        role: "USER",
+      },
     });
 
     const guideText = `🤖 **به ربات‌ساز هوشمند خوش آمدید!**\n\nبرای شروع، از طریق دکمه‌های زیر اقدام کنید:`;
@@ -73,6 +217,30 @@ export async function handleMainBotMessage(message: any, mainBotToken: string) {
         ]
       }
     }, mainBotToken);
+
+    if (!user.phone) {
+      await callTelegramAPI(
+        "sendMessage",
+        {
+          chat_id: chat.id,
+          text: "برای ورود امن به پنل، ابتدا شماره موبایل متعلق به همین حساب تلگرام را تأیید کنید.",
+          reply_markup: {
+            keyboard: [
+              [
+                {
+                  text: "📱 اشتراک شماره من",
+                  request_contact: true,
+                },
+              ],
+            ],
+            resize_keyboard: true,
+            one_time_keyboard: true,
+          },
+        },
+        mainBotToken
+      );
+    }
+
     return;
   }
 

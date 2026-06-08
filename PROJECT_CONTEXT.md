@@ -90,7 +90,7 @@ app/
 lib/
   prisma/index.ts                    Prisma singleton
   session.ts                         JWT cookie creation and verification
-  telegramAuth.ts                    Telegram Web App verification helper
+  auth.ts                            Phone, OTP, and one-time-token helpers
   telegram/
     api.ts                           Generic Telegram API caller
     handlers/
@@ -132,6 +132,8 @@ The login footer links to `/policy`, but no policy route exists.
 
 - `POST /api/auth/request-otp`
 - `POST /api/auth/telegram`
+- `POST /api/auth/telegram/nonce`
+- `GET /api/auth/telegram-link`
 - `POST /api/telegram/webhook`
 - `POST /api/telegram/webhook/:token`
 
@@ -144,33 +146,35 @@ platform bot.
 ### Main OTP path
 
 1. A Telegram user starts the platform bot.
-2. The platform bot upserts a `User` by `telegramId`.
-3. The user must share or otherwise acquire a stored phone number. No handler
-   that accepts Telegram contact messages currently exists in this repository,
-   so the intended phone-linking bootstrap appears incomplete.
-4. `/login` sends the phone and delivery method to
-   `/api/auth/request-otp`.
-5. The route normalizes Iranian prefixes (`+98` or `98` to a leading `0`),
-   finds the user by phone, stores a five-digit OTP for five minutes, and sends
-   it through the main Telegram bot when `method === "telegram"`.
-6. `verifyOtpAction` compares the code and expiry, clears OTP fields, then sets
-   the session cookie.
-
-SMS is selectable in the UI but is not implemented. The route still stores an
-OTP and returns success without sending an SMS.
+2. The platform bot upserts a `User` by `telegramId` and asks users without a
+   phone number to share their own Telegram contact.
+3. Contact messages are accepted only when `contact.user_id` matches the
+   Telegram sender. Iranian phone numbers are normalized and linked to the user.
+4. After contact verification, the bot sends a five-minute, single-use login
+   link backed by a hashed `LoginToken`.
+5. The web login page can also request a five-digit Telegram OTP for an already
+   linked phone number.
+6. OTP codes are HMAC-hashed, expire after five minutes, are limited to five
+   attempts, and have a one-minute resend cooldown.
+7. The OTP challenge is stored in an HTTP-only cookie, so neither the phone nor
+   OTP is placed in the login URL.
 
 ### Telegram Login Widget path
 
-`POST /api/auth/telegram` verifies classic Telegram login data with
-`TELEGRAM_LOGIN_BOT_TOKEN`, upserts a user by Telegram ID, and creates a
-session. `TelegramLoginWidget.tsx` exists but is not rendered by the current
-login page, and its comments suggest a newer OAuth payload that may not match
-the route's classic hash verification.
+The login page uses Telegram's current OIDC login library. It requests profile,
+verified phone, and bot write access. A server-generated nonce is stored in an
+HTTP-only cookie, and `POST /api/auth/telegram` verifies the returned ID token
+against Telegram's JWKS, issuer, audience, expiry, and nonce before linking or
+creating a user and issuing the application session.
+
+Configure the production origin and login URL in BotFather under:
+`Bot Settings > Web Login`. The Client ID belongs in
+`NEXT_PUBLIC_TELEGRAM_CLIENT_ID`.
 
 ### Session implementation
 
 - Cookie name: `session`
-- Payload: `{ userId, expires }`
+- Payload: `{ userId, expires, purpose: "session" }`
 - Signature: HS256 using `SESSION_SECRET`
 - Lifetime: seven days
 - Cookie: HTTP-only, `sameSite=lax`, secure in production, path `/`
@@ -319,9 +323,9 @@ Required or referenced:
 
 - `DATABASE_URL` - PostgreSQL connection string
 - `SESSION_SECRET` - HS256 session signing secret
-- `TELEGRAM_LOGIN_BOT_TOKEN` - Main bot token and login verification token
+- `TELEGRAM_LOGIN_BOT_TOKEN` - Main/platform bot token
 - `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME` - Main bot link on the login page
-- `NEXT_PUBLIC_TELEGRAM_CLIENT_ID` - Used only by the unused login widget
+- `NEXT_PUBLIC_TELEGRAM_CLIENT_ID` - Telegram Web Login/OIDC Client ID
 - `NEXT_PUBLIC_APP_BASE_URL` - Public base URL used to register user-bot webhooks
 - `V2RAY_PROXY` - Optional outbound proxy URL
 
@@ -379,15 +383,15 @@ Treat these as known issues, not established design choices:
    No Telegram webhook secret-token header is configured or verified.
 5. `callTelegramAPI` catches transport errors but does not throw on Telegram API
    responses with `ok: false`; callers must check the response.
-6. OTP generation uses `Math.random`, has no rate limit or attempt limit, and
-   stores codes in plaintext.
-7. Request-OTP does not validate the requested method and does not implement
-   SMS delivery.
-8. Telegram login verification uses normal string equality rather than a
-   timing-safe comparison and does not enforce `auth_date` freshness.
-9. `SESSION_SECRET` is read at module load without explicit validation.
-10. The main webhook logs full Telegram updates, which may contain personal
-    data.
+6. OTP and one-time login protection is application-level and not a substitute
+   for infrastructure-level IP/device abuse controls.
+7. Telegram OIDC account conflicts require manual support resolution rather
+   than automatically merging two existing users.
+8. One-time bot login tokens appear in the callback URL. They are random,
+   hashed at rest, expire after five minutes, and are atomically consumed once.
+9. Sessions are stateless JWTs and cannot currently be revoked individually.
+10. Expired and consumed `LoginToken` rows are cleaned when a new token is
+    issued for the same user, not by a global retention job.
 11. Specific-time campaigns currently use the fixed `Asia/Tehran` timezone.
     There is no per-user timezone model.
 12. Dashboard campaign display assumes interval scheduling and shows
@@ -427,8 +431,6 @@ Treat these as known issues, not established design choices:
 - No CI configuration exists.
 - No scheduler/deployment configuration exists.
 - No logout action exists.
-- `lib/telegramAuth.ts` appears unused.
-- `TelegramLoginWidget.tsx` appears unused.
 - `createPostAction` exists, but the current posts page has no create-post form.
 - The posts page contains a debug `console.log`.
 

@@ -1,31 +1,86 @@
 "use server";
 
-import  prisma  from "@/lib/prisma";
-import { createSession } from "@/lib/session"; // تابعی که قبلا با jose ساختید
+import { verifyOtpHash } from "@/lib/auth";
+import prisma from "@/lib/prisma";
+import {
+  clearOtpChallenge,
+  createSession,
+  getOtpChallengeUserId,
+} from "@/lib/session";
 
-export async function verifyOtpAction(phone: string, code: string) {
+const MAX_OTP_ATTEMPTS = 5;
+
+export async function verifyOtpAction(code: string) {
   try {
-    const user = await prisma.user.findUnique({ where: { phone } });
-
-    if (!user || user.otpCode !== code) {
-      return { error: "کد وارد شده نامعتبر است" };
+    if (!/^\d{5}$/.test(code)) {
+      return { error: "کد تأیید باید پنج رقم باشد." };
     }
 
-    if (user.otpExpires && user.otpExpires < new Date()) {
-      return { error: "کد تایید منقضی شده است" };
+    const userId = await getOtpChallengeUserId();
+
+    if (!userId) {
+      return { error: "درخواست ورود منقضی شده است. دوباره کد دریافت کنید." };
     }
 
-    // پاک کردن کد بعد از استفاده
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { otpCode: null, otpExpires: null }
-    });
+    const user = await prisma.user.findUnique({ where: { id: userId } });
 
-    // ایجاد سشن (کوکی ورود)
+    if (!user?.otpCode || !user.otpExpires) {
+      await clearOtpChallenge();
+      return { error: "درخواست ورود معتبر نیست. دوباره کد دریافت کنید." };
+    }
+
+    if (user.otpExpires <= new Date()) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { otpCode: null, otpExpires: null, otpAttempts: 0 },
+      });
+      await clearOtpChallenge();
+      return { error: "کد تأیید منقضی شده است. دوباره کد دریافت کنید." };
+    }
+
+    if (!verifyOtpHash(code, user.otpCode)) {
+      const attempts = user.otpAttempts + 1;
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          otpAttempts: attempts,
+          ...(attempts >= MAX_OTP_ATTEMPTS
+            ? { otpCode: null, otpExpires: null }
+            : {}),
+        },
+      });
+
+      if (attempts >= MAX_OTP_ATTEMPTS) {
+        await clearOtpChallenge();
+        return {
+          error: "تعداد تلاش‌های ناموفق بیش از حد مجاز بود. کد جدید دریافت کنید.",
+        };
+      }
+
+      return { error: "کد واردشده صحیح نیست." };
+    }
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: user.id },
+        data: {
+          otpCode: null,
+          otpExpires: null,
+          otpAttempts: 0,
+          otpRequestedAt: null,
+        },
+      }),
+      prisma.loginToken.deleteMany({
+        where: { userId: user.id, usedAt: null },
+      }),
+    ]);
+
+    await clearOtpChallenge();
     await createSession(user.id);
 
     return { success: true };
-  } catch  {
-    return { error: "خطا در اعتبارسنجی" };
+  } catch {
+    return { error: "اعتبارسنجی انجام نشد. لطفاً دوباره تلاش کنید." };
   }
 }

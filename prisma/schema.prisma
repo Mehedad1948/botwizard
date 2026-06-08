@@ -10,19 +10,34 @@ datasource db {
 }
 
 model User {
-  id         String    @id @default(cuid())
-  phone      String?   @unique
-  firstName  String?
-  lastName   String?
-  username   String?
-  photoUrl   String?
-  telegramId String?   @unique
-  otpCode    String?
-  otpExpires DateTime?
-  role       Role      @default(USER)
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  bots       Bot[]
+  id             String       @id @default(cuid())
+  phone          String?      @unique
+  firstName      String?
+  lastName       String?
+  username       String?
+  photoUrl       String?
+  telegramId     String?      @unique
+  otpCode        String?
+  otpExpires     DateTime?
+  otpAttempts    Int          @default(0)
+  otpRequestedAt DateTime?
+  role           Role         @default(USER)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  bots           Bot[]
+  loginTokens    LoginToken[]
+}
+
+model LoginToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, expiresAt])
 }
 
 model Bot {

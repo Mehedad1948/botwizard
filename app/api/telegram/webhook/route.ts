@@ -9,8 +9,6 @@ export async function POST(req: Request) {
 
     if (!mainBotToken) throw new Error("Main Bot token is missing in .env");
 
-    console.log(`[Main Bot Webhook Update]`, update);
-
     // ۱. پردازش پیام‌های متنی ربات مادر
     if (update.message) {
       await handleMainBotMessage(update.message, mainBotToken);
