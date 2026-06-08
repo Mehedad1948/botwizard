@@ -388,8 +388,8 @@ Treat these as known issues, not established design choices:
 9. `SESSION_SECRET` is read at module load without explicit validation.
 10. The main webhook logs full Telegram updates, which may contain personal
     data.
-11. Specific-time calculations use the server's local timezone with no explicit
-    user timezone model.
+11. Specific-time campaigns currently use the fixed `Asia/Tehran` timezone.
+    There is no per-user timezone model.
 12. Dashboard campaign display assumes interval scheduling and shows
     `intervalHours` even for specific-time campaigns.
 13. Bot addition from the web dashboard validates and saves the token but does

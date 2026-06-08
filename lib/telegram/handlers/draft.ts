@@ -1,33 +1,9 @@
 // src/lib/telegram/handlers/draft.ts
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import prisma from "@/lib/prisma";
+import { calculateNextRunForSpecificTimes } from "@/lib/scheduling";
 import { callTelegramAPI } from "../api";
 import { Bot } from "@prisma/client";
-
-// تابع کمکی برای پیدا کردن نزدیک‌ترین زمان اجرای بعدی
-function calculateNextRunForSpecificTimes(times: string[]): Date {
-  const now = new Date();
-  const currentHour = now.getHours();
-  const currentMinute = now.getMinutes();
-  const currentTimeStr = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`;
-
-  const sortedTimes = [...times].sort();
-  let nextTime = sortedTimes.find(t => t > currentTimeStr);
-  const nextRunDate = new Date(now);
-
-  if (nextTime) {
-    // اجرا در همین امروز
-    const [h, m] = nextTime.split(":");
-    nextRunDate.setHours(parseInt(h), parseInt(m), 0, 0);
-  } else {
-    // اجرا در فردا (ساعات امروز گذشته‌اند)
-    nextTime = sortedTimes[0];
-    const [h, m] = nextTime.split(":");
-    nextRunDate.setDate(nextRunDate.getDate() + 1);
-    nextRunDate.setHours(parseInt(h), parseInt(m), 0, 0);
-  }
-  return nextRunDate;
-}
 
 export async function handleDraftPost(message: any, bot: Bot) {
   const chatId = message.chat.id;
