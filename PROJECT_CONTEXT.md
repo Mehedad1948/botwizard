@@ -78,6 +78,7 @@ app/
     layout.tsx                       Session-gated dashboard shell
     dashboard/page.tsx               User summary counts
     dashboard/bots/                  Bot list/add/delete UI and actions
+    dashboard/bots/[botId]/          Bot-scoped campaigns, posts, and chats
     dashboard/posts/                 Saved post list and campaign creation
     dashboard/campaigns/             Campaign list/toggle/delete UI
   api/
@@ -120,11 +121,11 @@ instrumentation.ts                   Optional process-wide outbound proxy
 - `/login` - Phone-based OTP flow.
 - `/dashboard` - Counts bots, active campaigns, and posts for the session user.
 - `/dashboard/bots` - Adds, lists, and deletes bots.
-- `/dashboard/posts` - Lists posts and creates interval campaigns manually.
-- `/dashboard/campaigns` - Lists, toggles, and deletes campaigns.
-
-The dashboard sidebar currently links to dashboard, bots, and campaigns. It does
-not link to `/dashboard/posts`, even though that page exists.
+- `/dashboard/bots/:botId` - Full bot workspace for status, campaigns, history,
+  posts, and connected destinations.
+- `/dashboard/posts` - Lists posts, sends immediately, and creates interval or
+  Tehran-time fixed-hour campaigns for known connected destinations.
+- `/dashboard/campaigns` - Aggregate campaign list with bot links and controls.
 
 The login footer links to `/policy`, but no policy route exists.
 
@@ -375,31 +376,24 @@ There is no test script or test suite.
 Treat these as known issues, not established design choices:
 
 1. Scheduled execution is absent.
-2. Campaign toggle/delete Server Actions check for a session but do not scope
-   the mutation to the current user's ownership.
-3. Main-bot callback operations fetch bots by ID without verifying ownership by
+2. Main-bot callback operations fetch bots by ID without verifying ownership by
    the callback sender.
-4. User bot tokens are embedded directly in webhook URLs and stored plaintext.
+3. User bot tokens are embedded directly in webhook URLs and stored plaintext.
    No Telegram webhook secret-token header is configured or verified.
-5. `callTelegramAPI` catches transport errors but does not throw on Telegram API
+4. `callTelegramAPI` catches transport errors but does not throw on Telegram API
    responses with `ok: false`; callers must check the response.
-6. OTP and one-time login protection is application-level and not a substitute
+5. OTP and one-time login protection is application-level and not a substitute
    for infrastructure-level IP/device abuse controls.
-7. Telegram OIDC account conflicts require manual support resolution rather
+6. Telegram OIDC account conflicts require manual support resolution rather
    than automatically merging two existing users.
-8. One-time bot login tokens appear in the callback URL. They are random,
+7. One-time bot login tokens appear in the callback URL. They are random,
    hashed at rest, expire after five minutes, and are atomically consumed once.
-9. Sessions are stateless JWTs and cannot currently be revoked individually.
-10. Expired and consumed `LoginToken` rows are cleaned when a new token is
+8. Sessions are stateless JWTs and cannot currently be revoked individually.
+9. Expired and consumed `LoginToken` rows are cleaned when a new token is
     issued for the same user, not by a global retention job.
-11. Specific-time campaigns currently use the fixed `Asia/Tehran` timezone.
+10. Specific-time campaigns currently use the fixed `Asia/Tehran` timezone.
     There is no per-user timezone model.
-12. Dashboard campaign display assumes interval scheduling and shows
-    `intervalHours` even for specific-time campaigns.
-13. Bot addition from the web dashboard validates and saves the token but does
-    not call `setWebhook`; bot addition through the main Telegram bot does.
-14. Deleting a bot in the database does not delete its Telegram webhook.
-15. Several broad catch blocks replace useful validation errors with a generic
+11. Several broad catch blocks replace useful validation errors with a generic
     error, making operations difficult to diagnose.
 
 ## Development Guidance

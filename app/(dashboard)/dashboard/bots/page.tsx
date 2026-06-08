@@ -1,10 +1,8 @@
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { redirect } from "next/navigation";
-import { addBotAction } from "./actions";
-import { Input } from "@/components/ui/input";
-import { SubmitButton } from "./SubmitButton";
 import { BotCard } from "./BotCard";
+import { AddBotForm } from "./AddBotForm";
 
 export default async function BotsPage() {
   const session = await getSession();
@@ -45,20 +43,7 @@ export default async function BotsPage() {
 
       {/* Add Bot Form */}
       <div className="p-6 rounded-xl border bg-card text-card-foreground shadow-sm">
-        <form action={addBotAction} className="flex gap-4 items-end flex-wrap sm:flex-nowrap">
-          <div className="flex-1 space-y-2 w-full">
-            <label htmlFor="token" className="text-sm font-medium">توکن ربات</label>
-            <Input
-              type="text"
-              id="token"
-              name="token"
-              placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
-              dir="ltr"
-              required
-            />
-          </div>
-          <SubmitButton />
-        </form>
+        <AddBotForm />
       </div>
 
       {/* Bots List */}

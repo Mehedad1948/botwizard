@@ -25,6 +25,9 @@ export default async function DashboardLayout({ children }: { children: ReactNod
           <Link href="/dashboard/bots" className="block px-4 py-2 rounded-md hover:bg-muted transition-colors">
             مدیریت ربات‌ها
           </Link>
+          <Link href="/dashboard/posts" className="block px-4 py-2 rounded-md hover:bg-muted transition-colors">
+            پست‌ها
+          </Link>
           <Link href="/dashboard/campaigns" className="block px-4 py-2 rounded-md hover:bg-muted transition-colors">
             کمپین‌ها
           </Link>

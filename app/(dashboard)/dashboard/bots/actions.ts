@@ -9,12 +9,12 @@ import { revalidatePath } from "next/cache";
 export async function addBotAction(formData: FormData) {
   const session = await getSession();
   if (!session?.userId) {
-    throw new Error("عدم دسترسی. لطفا وارد شوید.");
+    return { error: "ابتدا وارد حساب خود شوید." };
   }
 
-  const token = formData.get("token") as string;
+  const token = String(formData.get("token") ?? "").trim();
   if (!token) {
-    throw new Error("توکن ربات الزامی است.");
+    return { error: "توکن ربات الزامی است." };
   }
 
   try {
@@ -27,6 +27,29 @@ export async function addBotAction(formData: FormData) {
     }
 
     const username = data.result.username;
+    const baseUrl = process.env.NEXT_PUBLIC_APP_BASE_URL?.replace(/\/$/, "");
+
+    if (!baseUrl) {
+      throw new Error("آدرس عمومی سامانه برای ثبت وب‌هوک تنظیم نشده است.");
+    }
+
+    const webhookResponse = await fetch(
+      `https://api.telegram.org/bot${token}/setWebhook`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: `${baseUrl}/api/telegram/webhook/${token}`,
+        }),
+      }
+    );
+    const webhookResult = await webhookResponse.json();
+
+    if (!webhookResponse.ok || !webhookResult.ok) {
+      throw new Error(
+        webhookResult.description || "ثبت وب‌هوک ربات انجام نشد."
+      );
+    }
 
     // 2. Save to database
     await prisma.bot.create({
@@ -39,23 +62,51 @@ export async function addBotAction(formData: FormData) {
 
     revalidatePath("/dashboard/bots");
     revalidatePath("/dashboard");
+    return { success: true };
   } catch (error: any) {
-    if (error.code === 'P2002') {
-      throw new Error("این ربات قبلا ثبت شده است.");
+    if (error.code === "P2002") {
+      return { error: "این ربات قبلاً در سامانه ثبت شده است." };
     }
-    throw new Error("خطایی رخ داد. لطفا دوباره تلاش کنید.");
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "خطایی رخ داد. لطفاً دوباره تلاش کنید.",
+    };
   }
 }
 
 // Notice the added formData parameter here to handle the .bind() correctly
-export async function deleteBotAction(botId: string, formData: FormData) {
+export async function deleteBotAction(botId: string) {
   const session = await getSession();
-  if (!session?.userId) throw new Error("Unauthorized");
+  if (!session?.userId) return { error: "ابتدا وارد حساب خود شوید." };
 
-  await prisma.bot.delete({
+  const bot = await prisma.bot.findFirst({
     where: { id: botId, userId: session.userId },
+    select: { id: true, token: true },
   });
+
+  if (!bot) return { error: "ربات یافت نشد یا به آن دسترسی ندارید." };
+
+  try {
+    const response = await fetch(
+      `https://api.telegram.org/bot${bot.token}/deleteWebhook`,
+      { method: "POST" }
+    );
+    const result = await response.json();
+
+    if (!response.ok || !result.ok) {
+      console.warn("Telegram webhook cleanup failed:", result.description);
+    }
+  } catch {
+    console.warn("Telegram webhook cleanup request failed.");
+  }
+
+  await prisma.bot.delete({ where: { id: bot.id } });
 
   revalidatePath("/dashboard/bots");
   revalidatePath("/dashboard");
+  revalidatePath("/dashboard/campaigns");
+  revalidatePath("/dashboard/posts");
+  return { success: true };
 }

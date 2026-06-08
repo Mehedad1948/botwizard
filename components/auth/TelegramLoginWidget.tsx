@@ -2,7 +2,7 @@
 
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type TelegramLoginResult = {
   id_token?: string;
@@ -14,6 +14,12 @@ type TelegramLoginOptions = {
   request_access: Array<"phone" | "write">;
   lang: string;
   nonce: string;
+
+  /**
+   * Telegram popup/postMessage flow needs a website origin.
+   * This must match an Allowed URL in BotFather Web Login.
+   */
+  origin: string;
 };
 
 declare global {
@@ -32,8 +38,36 @@ declare global {
 const TELEGRAM_LOGIN_SCRIPT =
   "https://oauth.telegram.org/js/telegram-login.js?5";
 
+/**
+ * Use your production origin.
+ *
+ * Important:
+ * - No trailing slash
+ * - Must be registered in BotFather:
+ *   Bot Settings → Web Login → Allowed URLs
+ */
+const TELEGRAM_ALLOWED_ORIGIN = "https://botwizard-oesj.vercel.app";
+
 export default function TelegramLoginWidget() {
   const router = useRouter();
+
+  const telegramOrigin = useMemo(() => {
+    if (typeof window === "undefined") {
+      return TELEGRAM_ALLOWED_ORIGIN;
+    }
+
+    /**
+     * In production, force the exact BotFather origin.
+     * In local development, you can use window.location.origin,
+     * but localhost must also be added to BotFather if you test there.
+     */
+    if (window.location.hostname === "botwizard-oesj.vercel.app") {
+      return TELEGRAM_ALLOWED_ORIGIN;
+    }
+
+    return window.location.origin;
+  }, []);
+
   const [scriptReady, setScriptReady] = useState(
     () => typeof window !== "undefined" && Boolean(window.Telegram?.Login)
   );
@@ -42,12 +76,14 @@ export default function TelegramLoginWidget() {
 
   useEffect(() => {
     if (window.Telegram?.Login) {
-      return;
+      const readyTimer = window.setTimeout(() => setScriptReady(true), 0);
+      return () => window.clearTimeout(readyTimer);
     }
 
     const existingScript = document.querySelector<HTMLScriptElement>(
       `script[src="${TELEGRAM_LOGIN_SCRIPT}"]`
     );
+
     const script = existingScript ?? document.createElement("script");
 
     const handleLoad = () => setScriptReady(true);
@@ -77,6 +113,19 @@ export default function TelegramLoginWidget() {
       return;
     }
 
+    /**
+     * Prevent accidentally sending a localhost / preview / wrong domain origin
+     * to Telegram in production.
+     */
+    if (
+      typeof window !== "undefined" &&
+      window.location.hostname === "botwizard-oesj.vercel.app" &&
+      telegramOrigin !== TELEGRAM_ALLOWED_ORIGIN
+    ) {
+      setError("دامنه ورود تلگرام به درستی تنظیم نشده است.");
+      return;
+    }
+
     setPending(true);
     setError("");
 
@@ -84,6 +133,7 @@ export default function TelegramLoginWidget() {
       const nonceResponse = await fetch("/api/auth/telegram/nonce", {
         method: "POST",
       });
+
       const nonceData = await nonceResponse.json();
 
       if (!nonceResponse.ok || !nonceData.nonce) {
@@ -96,29 +146,43 @@ export default function TelegramLoginWidget() {
           request_access: ["phone", "write"],
           lang: "fa",
           nonce: nonceData.nonce,
+          origin: telegramOrigin,
         },
         async (result) => {
-          if (result.error || !result.id_token) {
-            setError(result.error || "ورود با تلگرام لغو شد.");
+          try {
+            if (result.error || !result.id_token) {
+              setError(result.error || "ورود با تلگرام لغو شد.");
+              setPending(false);
+              return;
+            }
+
+            const response = await fetch("/api/auth/telegram", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id_token: result.id_token,
+                nonce: nonceData.nonce,
+              }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+              setError(data.error || "ورود با تلگرام انجام نشد.");
+              setPending(false);
+              return;
+            }
+
+            router.replace("/dashboard");
+            router.refresh();
+          } catch (callbackError) {
+            setError(
+              callbackError instanceof Error
+                ? callbackError.message
+                : "ورود با تلگرام انجام نشد."
+            );
             setPending(false);
-            return;
           }
-
-          const response = await fetch("/api/auth/telegram", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id_token: result.id_token }),
-          });
-          const data = await response.json();
-
-          if (!response.ok) {
-            setError(data.error || "ورود با تلگرام انجام نشد.");
-            setPending(false);
-            return;
-          }
-
-          router.replace("/dashboard");
-          router.refresh();
         }
       );
     } catch (loginError) {
@@ -146,6 +210,7 @@ export default function TelegramLoginWidget() {
         )}
         <span>{pending ? "در حال اتصال..." : "ورود مستقیم با تلگرام"}</span>
       </button>
+
       {error && <p className="text-center text-xs text-red-600">{error}</p>}
     </div>
   );

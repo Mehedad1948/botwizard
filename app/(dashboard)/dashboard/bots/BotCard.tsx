@@ -1,81 +1,102 @@
 "use client";
 
-import { useTransition } from "react";
-import { deleteBotAction } from "./actions";
+import { ConfirmedActionButton } from "@/components/dashboard/ConfirmedActionButton";
 import { Button } from "@/components/ui/button";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { Bot } from "@prisma/client";
+import {
+  ArrowLeft,
+  CalendarClock,
+  FileText,
+  Power,
+  Trash2,
+  Users,
+} from "lucide-react";
+import Link from "next/link";
+import { toggleBotStatusAction } from "./[botId]/actions";
+import { deleteBotAction } from "./actions";
 
-// نوع‌دهی سفارشی برای رباتی که _count به آن اضافه شده است
 type BotWithCounts = Bot & {
   _count: { connectedChats: number; campaigns: number; posts: number };
 };
 
 export function BotCard({ bot }: { bot: BotWithCounts }) {
-  const [isPending, startTransition] = useTransition();
-
-  const handleDelete = () => {
-    startTransition(async () => {
-      // Create and pass a dummy FormData object to satisfy the action signature
-      const formData = new FormData();
-      await deleteBotAction(bot.id, formData);
-    });
-  };
-
   return (
-    <div className="flex flex-col p-4 border rounded-xl bg-card shadow-sm hover:shadow transition-shadow space-y-4">
-      <div className="flex items-start justify-between">
+    <article className="flex flex-col gap-5 rounded-2xl border bg-card p-5 shadow-sm transition-shadow hover:shadow-md">
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="font-semibold text-lg" dir="ltr">@{bot.username}</p>
-          <p className="text-xs font-medium mt-1 text-green-600 dark:text-green-400 flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-            {bot.isActive ? "فعال و متصل" : "غیرفعال"}
+          <p className="text-lg font-semibold" dir="ltr">
+            @{bot.username}
+          </p>
+          <p
+            className={`mt-1 flex items-center gap-2 text-xs font-medium ${
+              bot.isActive ? "text-green-600" : "text-amber-600"
+            }`}
+          >
+            <span
+              className={`size-2 rounded-full ${
+                bot.isActive ? "bg-green-500" : "bg-amber-500"
+              }`}
+            />
+            {bot.isActive ? "فعال و آماده دریافت" : "غیرفعال"}
           </p>
         </div>
-
-        {/* Modal for Deletion */}
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="destructive" size="sm" disabled={isPending}>
-              {isPending ? "در حال حذف..." : "حذف"}
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>آیا از حذف این ربات اطمینان دارید؟</AlertDialogTitle>
-              <AlertDialogDescription>
-                با حذف این ربات، تمامی گروه‌های متصل، کمپین‌ها و پست‌های مرتبط با آن (شامل {bot._count.campaigns} کمپین و {bot._count.posts} پست) برای همیشه حذف خواهند شد و این عملیات غیرقابل بازگشت است.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter className="gap-2 sm:gap-0">
-              <AlertDialogCancel>انصراف</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleDelete}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              >
-                تایید و حذف
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <Button asChild size="sm">
+          <Link href={`/dashboard/bots/${bot.id}`}>
+            مدیریت کامل
+            <ArrowLeft />
+          </Link>
+        </Button>
       </div>
 
-      {/* Stats Section */}
-      <div className="flex items-center gap-4 text-xs text-muted-foreground border-t pt-3">
-        <span className="flex items-center gap-1">👥 {bot._count.connectedChats} گروه</span>
-        <span className="flex items-center gap-1">📊 {bot._count.campaigns} کمپین</span>
-        <span className="flex items-center gap-1">📝 {bot._count.posts} پست</span>
+      <div className="grid grid-cols-3 gap-2 border-y py-4 text-center">
+        <BotStat icon={<Users />} value={bot._count.connectedChats} label="مقصد" />
+        <BotStat
+          icon={<CalendarClock />}
+          value={bot._count.campaigns}
+          label="کمپین"
+        />
+        <BotStat icon={<FileText />} value={bot._count.posts} label="پست" />
       </div>
+
+      <div className="flex flex-wrap gap-2">
+        <ConfirmedActionButton
+          action={toggleBotStatusAction.bind(null, bot.id)}
+          pendingLabel="در حال تغییر..."
+        >
+          <Power />
+          {bot.isActive ? "غیرفعال‌کردن" : "فعال‌کردن"}
+        </ConfirmedActionButton>
+        <ConfirmedActionButton
+          action={deleteBotAction.bind(null, bot.id)}
+          confirmTitle="حذف دائمی ربات؟"
+          confirmDescription={`سامانه برای حذف وب‌هوک تلگرام تلاش می‌کند و ${bot._count.posts.toLocaleString("fa-IR")} پست، ${bot._count.campaigns.toLocaleString("fa-IR")} کمپین و ${bot._count.connectedChats.toLocaleString("fa-IR")} مقصد برای همیشه از سامانه پاک خواهند شد.`}
+          pendingLabel="در حال حذف..."
+          variant="destructive"
+        >
+          <Trash2 />
+          حذف ربات
+        </ConfirmedActionButton>
+      </div>
+    </article>
+  );
+}
+
+function BotStat({
+  icon,
+  value,
+  label,
+}: {
+  icon: React.ReactNode;
+  value: number;
+  label: string;
+}) {
+  return (
+    <div>
+      <p className="flex items-center justify-center gap-1 text-sm font-bold [&_svg]:size-4">
+        {icon}
+        {value.toLocaleString("fa-IR")}
+      </p>
+      <p className="mt-1 text-xs text-muted-foreground">{label}</p>
     </div>
   );
 }
