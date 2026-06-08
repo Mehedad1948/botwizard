@@ -107,6 +107,7 @@ export default function TelegramLoginWidget() {
 
   const handleTelegramLogin = async () => {
     const clientId = Number(process.env.NEXT_PUBLIC_TELEGRAM_CLIENT_ID);
+    console.log('🎮🎮', { clientId, TLOGIN: window.Telegram?.Login, scriptReady });
 
     if (!scriptReady || !window.Telegram?.Login || !clientId) {
       setError("ورود تلگرام در حال حاضر در دسترس نیست.");
