@@ -162,10 +162,15 @@ platform bot.
 
 ### Telegram Login Widget path
 
-The login page uses Telegram's current OIDC login library. It requests profile,
-verified phone, and bot write access. A server-generated nonce is stored in an
-HTTP-only cookie, and `POST /api/auth/telegram` verifies the returned ID token
-against Telegram's JWKS, issuer, audience, expiry, and nonce before linking or
+The login page uses Telegram's OIDC popup/postMessage protocol through a local
+wrapper. Telegram's current `telegram-login.js?5` popup URL omits the required
+`origin` parameter, so the wrapper explicitly sends the current website origin
+and exact login-page redirect URI. Both must be registered under BotFather
+**Bot Settings > Web Login > Allowed URLs** for every deployed domain. It
+requests profile, verified phone, and bot write access. A server-generated
+nonce is stored in an HTTP-only cookie, and `POST /api/auth/telegram` verifies
+the returned ID token against Telegram's JWKS, issuer, audience, expiry, and
+nonce before linking or
 creating a user and issuing the application session.
 
 Configure the production origin and login URL in BotFather under:
