@@ -160,4 +160,46 @@
     background-clip: text;
     color: transparent;
   }
+
+  .landing-robot-float {
+    animation: landing-robot-float 6.8s ease-in-out infinite;
+    transform-origin: 50% 72%;
+    will-change: transform;
+  }
+
+  .landing-sparkle-float {
+    animation: landing-sparkle-float 4.8s ease-in-out infinite;
+    filter: drop-shadow(0 0 10px rgb(190 128 244 / 0.24));
+    transform-origin: 50% 65%;
+    will-change: transform, filter;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .landing-robot-float,
+    .landing-sparkle-float {
+      animation: none;
+    }
+  }
+}
+
+@keyframes landing-robot-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(-0.25deg);
+  }
+  50% {
+    transform: translate3d(0, -0.45rem, 0) rotate(0.25deg);
+  }
+}
+
+@keyframes landing-sparkle-float {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 8px rgb(190 128 244 / 0.2));
+    transform: translate3d(0, 0, 0) scale(0.98) rotate(-1deg);
+  }
+  50% {
+    filter: drop-shadow(0 0 15px rgb(255 1 158 / 0.32));
+    transform: translate3d(0, -0.35rem, 0) scale(1.025) rotate(1deg);
+  }
 }

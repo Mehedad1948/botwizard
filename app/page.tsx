@@ -5,11 +5,10 @@ import {
   CircleCheck,
   MessagesSquare,
   Play,
-  Sparkles,
 } from "lucide-react";
 import { LandingNotch } from "@/components/landing/LandingNotch";
+import { RobotHeroIllustration } from "@/components/landing/RobotHeroIllustration";
 import { Button } from "@/components/ui/button";
-import Image from "next/image";
 import Link from "next/link";
 
 const highlights = [
@@ -35,11 +34,11 @@ export default function Home() {
       />
 
 
-      <div className=" relative  overflow-visible  flex min-h-0 flex-1 flex-col h-full  bg-white ">
+      <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-visible bg-white">
         <LandingNotch className="absolute bottom-full translate-y-0.5" />
         <LandingNotch className="absolute top-full -scale-y-100 -translate-y-0.5" />
 
-        <header className="relative z-10 flex  shrink-0 items-center justify-between px-6 sm:px-10 lg:px-14">
+        <header className="relative z-10 flex shrink-0 items-center justify-between px-6 py-3 sm:px-10 sm:py-4 lg:px-14">
           <Link
             href="/"
             className="flex items-center gap-2.5 text-slate-950"
@@ -76,36 +75,41 @@ export default function Home() {
           </nav>
         </header>
 
-        <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-2">
-          <div className="relative z-10 flex items-center px-7 pt-3 sm:px-12 lg:order-1 lg:px-14 lg:pt-8 xl:px-20">
+        <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] lg:grid-cols-2 lg:grid-rows-1">
+          <div className="relative z-10 flex items-start px-6 pt-2 sm:px-12 sm:pt-3 lg:order-1 lg:items-center lg:px-14 lg:py-8 xl:px-20">
             <div className="mx-auto w-full max-w-xl lg:mx-0">
 
-              <h1 className="text-[clamp(2.25rem,4.2vw,4.8rem)] font-black leading-[1.1] tracking-[-0.045em] text-slate-950">
+              <h1 className="text-[clamp(2rem,8.5vw,4.8rem)] font-black leading-[1.1] tracking-[-0.045em] text-slate-950">
                 مدیریت تلگرام،
                 <span className="landing-gradient-text mt-2 block">
                   این‌بار واقعاً جادویی!
                 </span>
               </h1>
 
-              <p className="mt-6 max-w-lg text-sm leading-7 text-slate-500 sm:text-base sm:leading-8 lg:text-lg">
+              <p className="mt-4 max-w-lg text-sm leading-6 text-slate-500 sm:mt-6 sm:text-base sm:leading-8 lg:text-lg">
                 ربات‌ها، محتوا و کمپین‌های تلگرامی‌تان را از یک داشبورد ساده
                 مدیریت کنید؛ شما ایده بدهید، BotWizard درست سر وقت منتشر
                 می‌کند.
               </p>
 
-              <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+              <div className="mt-5 flex gap-3 sm:mt-7 sm:flex-row">
                 <Button
                   asChild
                   variant="brand"
                   size="brand"
-                  className="group"
+                  className="group flex-1 sm:flex-none"
                 >
                   <Link href="/login">
                     همین حالا شروع کن
                     <ArrowLeft className="size-5 transition-transform group-hover:-translate-x-1" />
                   </Link>
                 </Button>
-                <Button asChild variant="brand-outline" size="brand">
+                <Button
+                  asChild
+                  variant="brand-outline"
+                  size="brand"
+                  className="hidden sm:inline-flex"
+                >
                   <a href="#features">
                     <span className="flex size-7 items-center justify-center rounded-full bg-brand-cyan text-slate-950">
                       <Play className="size-3.5 fill-current" />
@@ -117,7 +121,7 @@ export default function Home() {
 
               <div
                 id="features"
-                className="mt-7 flex flex-wrap items-center gap-x-5 gap-y-3"
+                className="mt-7 hidden flex-wrap items-center gap-x-5 gap-y-3 md:flex"
               >
                 {highlights.map(({ icon: Icon, label }) => (
                   <span
@@ -132,41 +136,20 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="relative hidden min-h-0 items-center justify-center overflow-hidden px-10 py-8 lg:order-2 lg:flex xl:px-16">
+          <div className="relative flex min-h-0 items-center justify-center overflow-hidden px-5 pb-1 pt-2 sm:px-10 sm:pb-3 lg:order-2 lg:px-10 lg:py-8 xl:px-16">
             <div
               aria-hidden="true"
-              className="absolute left-1/2 top-1/2 h-[72%] w-[76%] -translate-x-1/2 -translate-y-1/2 rotate-[-5deg] rounded-[3.5rem] bg-brand-cyan/20"
+              className="absolute left-1/2 top-1/2 h-[76%] w-[72%] -translate-x-1/2 -translate-y-1/2 rotate-[-5deg] rounded-[2.5rem] bg-brand-cyan/20 sm:h-[72%] sm:w-[68%] lg:w-[76%] lg:rounded-[3.5rem]"
             />
             <div
               aria-hidden="true"
-              className="absolute left-[14%] top-[15%] size-20 rounded-full bg-brand-pink/15 blur-xl"
+              className="absolute left-[14%] top-[15%] hidden size-20 rounded-full bg-brand-pink/15 blur-xl sm:block"
             />
             <div
               aria-hidden="true"
-              className="absolute bottom-[15%] right-[12%] size-24 rounded-full bg-brand-lilac/20 blur-xl"
+              className="absolute bottom-[15%] right-[12%] hidden size-24 rounded-full bg-brand-lilac/20 blur-xl sm:block"
             />
-            <div className="relative h-full max-h-[660px] w-full max-w-[680px] flex items-center justify-center">
-              <div className="w-fit relative">
-
-
-                <Image
-                  src="/bot-wizard.png"
-                  alt="نمایی شاد از مدیریت ربات‌ها و کمپین‌های تلگرامی در BotWizard"
-                  width={600}
-                  height={400}
-                  preload
-                  className="object-contain lg:w-100"
-                />
-                <Image
-                  src="/sparkles.png"
-                  alt="نمایی شاد از مدیریت ربات‌ها و کمپین‌های تلگرامی در BotWizard"
-                  width={200}
-                  height={200}
-                  preload
-                  className="object-contain w-24 absolute right-0 top-16 animate-bounce"
-                />
-              </div>
-            </div>
+            <RobotHeroIllustration />
           </div>
         </div>
 

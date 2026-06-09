@@ -374,8 +374,8 @@ There is no test script or test suite.
 - `components/ui/button.tsx` includes landing variants `brand`, `brand-dark`,
   `brand-outline`, and `brand-ghost`, plus `brand` and `brand-sm` sizes.
 - The landing illustration currently uses
-  `public/landing-hero-placeholder.svg`. Replace the asset or update the
-  `Image` source in `app/page.tsx` when the final artwork is available.
+  `public/bot-wizard.png` with `public/sparkles.png`, composed responsively in
+  `components/landing/RobotHeroIllustration.tsx`.
 - The full-width card rim is isolated in
   `components/landing/LandingNotch.tsx`. The page mirrors the same component
   vertically for the lower edge; the white card itself remains rectangular.
