@@ -1,0 +1,10 @@
+{
+  "tailwindCSS.experimental.configFile": "app/tailwindcss.css",
+  "tailwindCSS.classFunctions": ["cn", "cva", "clsx"],
+  "editor.quickSuggestions": {
+    "strings": "on"
+  },
+  "files.associations": {
+    "*.css": "tailwindcss"
+  }
+}

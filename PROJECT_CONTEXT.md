@@ -71,7 +71,7 @@ Observed Next.js 16 conventions already used by the project:
 ```text
 app/
   layout.tsx                         Root RTL layout and NuqsAdapter
-  page.tsx                           Unmodified starter landing page
+  page.tsx                           Responsive product landing hero
   login/page.tsx                     Phone/OTP login UI
   actions/auth.ts                    OTP verification Server Action
   (dashboard)/
@@ -117,7 +117,7 @@ instrumentation.ts                   Optional process-wide outbound proxy
 
 ### Pages
 
-- `/` - Default Next.js starter page; not a product landing page yet.
+- `/` - Product landing page with a single-screen framed hero and login CTA.
 - `/login` - Phone-based OTP flow.
 - `/dashboard` - Counts bots, active campaigns, and posts for the session user.
 - `/dashboard/bots` - Adds, lists, and deletes bots.
@@ -369,6 +369,18 @@ There is no test script or test suite.
 - The root document is Persian: `lang="fa"` and `dir="rtl"`.
 - The root font is `Vazirmatn` from `next/font/google`.
 - Tailwind CSS is imported from `app/tailwindcss.css`.
+- Landing-page colors are reusable as `brand-cyan` (`#00F6FF`),
+  `brand-pink` (`#FF019E`), and `brand-lilac` (`#BE80F4`).
+- `components/ui/button.tsx` includes landing variants `brand`, `brand-dark`,
+  `brand-outline`, and `brand-ghost`, plus `brand` and `brand-sm` sizes.
+- The landing illustration currently uses
+  `public/landing-hero-placeholder.svg`. Replace the asset or update the
+  `Image` source in `app/page.tsx` when the final artwork is available.
+- The full-width card rim is isolated in
+  `components/landing/LandingNotch.tsx`. The page mirrors the same component
+  vertically for the lower edge; the white card itself remains rectangular.
+  Outer landing frame spacing is controlled by viewport padding on the parent
+  rather than calculated heights.
 - shadcn aliases use `@/components`, `@/components/ui`, and `@/lib`.
 - UI components are a mix of Server Components and small Client Components.
 - Most user-facing copy is Persian.
