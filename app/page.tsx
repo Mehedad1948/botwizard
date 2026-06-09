@@ -19,7 +19,7 @@ const highlights = [
 
 export default function Home() {
   return (
-    <main className="landing-frame-background relative flex h-svh items-center justify-center overflow-hidden p-3 sm:p-5 lg:py-20">
+    <main className="landing-frame-background relative flex h-svh items-center justify-center overflow-hidden p-3 py-8 sm:py-10 sm:px-5 lg:py-20">
       <div
         aria-hidden="true"
         className="absolute inset-0 opacity-30 [background-image:radial-gradient(circle_at_center,white_1.5px,transparent_1.5px)] [background-size:28px_28px]"
@@ -76,10 +76,10 @@ export default function Home() {
         </header>
 
         <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] lg:grid-cols-2 lg:grid-rows-1">
-          <div className="relative z-10 flex items-start px-6 pt-2 sm:px-12 sm:pt-3 lg:order-1 lg:items-center lg:px-14 lg:py-8 xl:px-20">
+          <div className="relative z-10  flex items-start px-6 pt-2 sm:px-12 sm:pt-3 lg:order-1 lg:items-center lg:px-14 lg:py-8 xl:px-20">
             <div className="mx-auto w-full max-w-xl lg:mx-0">
 
-              <h1 className="text-[clamp(2rem,8.5vw,4.8rem)] font-black leading-[1.1] tracking-[-0.045em] text-slate-950">
+              <h1 className="text-[clamp(2rem,5vw,4.8rem)] font-black leading-[1.1] tracking-[-0.045em] text-slate-950">
                 مدیریت تلگرام،
                 <span className="landing-gradient-text mt-2 block">
                   این‌بار واقعاً جادویی!
@@ -92,7 +92,7 @@ export default function Home() {
                 می‌کند.
               </p>
 
-              <div className="mt-5 flex gap-3 sm:mt-7 sm:flex-row">
+              <div className="mt-5   flex gap-3 sm:mt-7 sm:flex-row">
                 <Button
                   asChild
                   variant="brand"
@@ -104,9 +104,9 @@ export default function Home() {
                     <ArrowLeft className="size-5 transition-transform group-hover:-translate-x-1" />
                   </Link>
                 </Button>
-                <Button
+                {/* <Button
                   asChild
-                  variant="brand-outline"
+                  variant="glass"
                   size="brand"
                   className="hidden sm:inline-flex"
                 >
@@ -116,12 +116,12 @@ export default function Home() {
                     </span>
                     چطور کار می‌کند؟
                   </a>
-                </Button>
+                </Button> */}
               </div>
 
               <div
                 id="features"
-                className="mt-7 hidden flex-wrap items-center gap-x-5 gap-y-3 md:flex"
+                className="mt-7 hidden flex-wrap items-center gap-x-5 gap-y-3 lg:flex"
               >
                 {highlights.map(({ icon: Icon, label }) => (
                   <span
@@ -136,7 +136,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="relative flex min-h-0 items-center justify-center overflow-hidden px-5 pb-1 pt-2 sm:px-10 sm:pb-3 lg:order-2 lg:px-10 lg:py-8 xl:px-16">
+          <div className="relative z-0 flex min-h-0 items-center justify-center overflow-visible px-5 pb-1 pt-2 sm:px-10 sm:pb-3 lg:order-2 lg:px-10 lg:py-8 xl:px-16">
             <div
               aria-hidden="true"
               className="absolute left-1/2 top-1/2 h-[76%] w-[72%] -translate-x-1/2 -translate-y-1/2 rotate-[-5deg] rounded-[2.5rem] bg-brand-cyan/20 sm:h-[72%] sm:w-[68%] lg:w-[76%] lg:rounded-[3.5rem]"
@@ -147,7 +147,7 @@ export default function Home() {
             />
             <div
               aria-hidden="true"
-              className="absolute bottom-[15%] right-[12%] hidden size-24 rounded-full bg-brand-lilac/20 blur-xl sm:block"
+              className="absolute bottom-[15%] right-[12%] hidden size-24 rounded-full bg-brand-lilac/20 blur-xl sm:block "
             />
             <RobotHeroIllustration />
           </div>

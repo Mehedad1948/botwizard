@@ -180,17 +180,30 @@
       transform 450ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
-  @media (hover: hover) {
+  .landing-effects-disabled,
+  .landing-effects-disabled .landing-robot-float,
+  .landing-effects-disabled .landing-sparkle-float {
+    animation: none;
+    filter: none;
+    transform: none;
+    transition: none;
+  }
 
-    .landing-robot-group:hover .landing-sparkle-float {
+  @media (hover: hover) {
+    .landing-robot-group:not(.landing-effects-disabled):hover
+      .landing-sparkle-float {
       filter: drop-shadow(0 0 18px rgb(255 1 158 / 0.4));
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
+    .landing-robot-group,
     .landing-robot-float,
     .landing-sparkle-float {
       animation: none;
+      filter: none;
+      transform: none;
+      transition: none;
     }
   }
 }

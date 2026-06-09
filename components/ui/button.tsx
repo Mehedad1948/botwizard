@@ -27,6 +27,8 @@ const buttonVariants = cva(
           "border-slate-200 bg-white text-slate-700 hover:border-brand-cyan hover:bg-brand-cyan/10 hover:text-slate-950 focus-visible:ring-brand-cyan/30",
         "brand-ghost":
           "text-slate-500 hover:bg-brand-lilac/10 hover:text-brand-lilac focus-visible:ring-brand-lilac/30",
+        glass:
+          "border-white/80 bg-gradient-to-br from-white/80 via-white/45 to-brand-lilac/15 text-slate-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_10px_30px_rgba(90,45,120,0.12)] ring-1 ring-slate-900/8 backdrop-blur-xl backdrop-saturate-150 hover:-translate-y-0.5 hover:border-white hover:from-white/90 hover:via-white/60 hover:to-brand-cyan/20 hover:shadow-[inset_0_1px_0_rgba(255,255,255,1),0_14px_34px_rgba(90,45,120,0.16)] focus-visible:ring-brand-lilac/35 dark:border-white/20 dark:from-white/15 dark:via-white/10 dark:to-brand-lilac/15 dark:text-white dark:ring-white/10",
       },
       size: {
         default:

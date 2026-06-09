@@ -1,8 +1,43 @@
+"use client";
+
 import Image from "next/image";
+import { useEffect, useRef } from "react";
+
+type DeviceNavigator = Navigator & {
+  deviceMemory?: number;
+  connection?: {
+    saveData?: boolean;
+    effectiveType?: string;
+  };
+};
 
 export function RobotHeroIllustration() {
+  const illustrationRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const deviceNavigator = navigator as DeviceNavigator;
+    const connection = deviceNavigator.connection;
+    const hasLimitedMemory =
+      typeof deviceNavigator.deviceMemory === "number" &&
+      deviceNavigator.deviceMemory <= 4;
+    const hasLimitedCpu =
+      typeof deviceNavigator.hardwareConcurrency === "number" &&
+      deviceNavigator.hardwareConcurrency <= 4;
+    const hasSlowConnection =
+      connection?.saveData ||
+      connection?.effectiveType === "slow-2g" ||
+      connection?.effectiveType === "2g";
+
+    if (hasLimitedMemory || hasLimitedCpu || hasSlowConnection) {
+      illustrationRef.current?.classList.add("landing-effects-disabled");
+    }
+  }, []);
+
   return (
-    <div className="landing-robot-group relative w-[min(68vw,17rem)] sm:w-[min(48vw,22rem)] lg:w-[min(30vw,27rem)] xl:w-[30rem]">
+    <div
+      ref={illustrationRef}
+      className="landing-robot-group relative w-[min(68vw,17rem)] sm:w-[min(48vw,22rem)] lg:w-[min(30vw,27rem)] xl:w-[30rem]"
+    >
       <Image
         src="/bot-wizard.png"
         alt="ربات جادویی BotWizard"
