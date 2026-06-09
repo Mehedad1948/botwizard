@@ -162,16 +162,29 @@
   }
 
   .landing-robot-float {
-    animation: landing-robot-float 6.8s ease-in-out infinite;
+    animation: landing-robot-float 5.6s ease-in-out infinite;
     transform-origin: 50% 72%;
     will-change: transform;
   }
 
   .landing-sparkle-float {
-    animation: landing-sparkle-float 4.8s ease-in-out infinite;
+    animation: landing-sparkle-float 4s ease-in-out infinite;
     filter: drop-shadow(0 0 10px rgb(190 128 244 / 0.24));
     transform-origin: 50% 65%;
     will-change: transform, filter;
+  }
+
+  .landing-robot-group {
+    transition:
+      filter 450ms ease,
+      transform 450ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  @media (hover: hover) {
+
+    .landing-robot-group:hover .landing-sparkle-float {
+      filter: drop-shadow(0 0 18px rgb(255 1 158 / 0.4));
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -188,7 +201,7 @@
     transform: translate3d(0, 0, 0) rotate(-0.25deg);
   }
   50% {
-    transform: translate3d(0, -0.45rem, 0) rotate(0.25deg);
+    transform: translate3d(0, -0.7rem, 0) rotate(0.4deg);
   }
 }
 
@@ -200,6 +213,6 @@
   }
   50% {
     filter: drop-shadow(0 0 15px rgb(255 1 158 / 0.32));
-    transform: translate3d(0, -0.35rem, 0) scale(1.025) rotate(1deg);
+    transform: translate3d(0, -0.55rem, 0) scale(1.04) rotate(1.5deg);
   }
 }

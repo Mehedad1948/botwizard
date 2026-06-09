@@ -2,7 +2,7 @@ import Image from "next/image";
 
 export function RobotHeroIllustration() {
   return (
-    <div className="relative w-[min(68vw,17rem)] sm:w-[min(48vw,22rem)] lg:w-[min(30vw,27rem)] xl:w-[30rem]">
+    <div className="landing-robot-group relative w-[min(68vw,17rem)] sm:w-[min(48vw,22rem)] lg:w-[min(30vw,27rem)] xl:w-[30rem]">
       <Image
         src="/bot-wizard.png"
         alt="ربات جادویی BotWizard"
