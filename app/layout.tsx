@@ -10,6 +10,10 @@ export const metadata: Metadata = {
   title: "BotWizard | مدیریت و زمان‌بندی تلگرام",
   description:
     "مدیریت ربات‌ها، محتوا و زمان‌بندی خودکار کمپین‌های تلگرامی از یک داشبورد ساده.",
+    robots: {
+      follow: false,
+      index: false
+    }
 };
 
 export default function RootLayout({
