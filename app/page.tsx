@@ -4,7 +4,6 @@ import {
   CalendarClock,
   CircleCheck,
   MessagesSquare,
-  Play,
 } from "lucide-react";
 import { LandingNotch } from "@/components/landing/LandingNotch";
 import { RobotHeroIllustration } from "@/components/landing/RobotHeroIllustration";
@@ -35,7 +34,7 @@ export default function Home() {
 
 
       <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-visible bg-white">
-        <LandingNotch className="absolute bottom-full translate-y-0.5" />
+        <LandingNotch className="absolute bottom-full translate-y-0.5 min-h-5" />
         <LandingNotch className="absolute top-full -scale-y-100 -translate-y-0.5" />
 
         <header className="relative z-10 flex shrink-0 items-center justify-between px-6 py-3 sm:px-10 sm:py-4 lg:px-14">
@@ -79,15 +78,17 @@ export default function Home() {
           <div className="relative z-10  flex items-start px-6 pt-2 sm:px-12 sm:pt-3 lg:order-1 lg:items-center lg:px-14 lg:py-8 xl:px-20">
             <div className="mx-auto w-full max-w-xl lg:mx-0">
 
-              <h1 className="text-[clamp(2rem,5vw,4.8rem)] font-black leading-[1.1] tracking-[-0.045em] text-slate-950">
-                مدیریت تلگرام،
-                <span className="landing-gradient-text mt-2 block">
-                  این‌بار واقعاً جادویی!
+              <h1 className="text-[clamp(2.15rem,5vw,4.6rem)] font-black leading-[1.08] tracking-[-0.045em] text-slate-950">
+                <span className="block">ساخت ربات</span>
+                <span className="mt-2 flex items-center gap-[0.14em] whitespace-nowrap">
+                  <span className="landing-telegram-text">تلگرام</span>
+                  <span className="text-[0.72em] text-slate-400">و</span>
+                  <span className="landing-bale-text">بله</span>
                 </span>
               </h1>
 
               <p className="mt-4 max-w-lg text-sm leading-6 text-slate-500 sm:mt-6 sm:text-base sm:leading-8 lg:text-lg">
-                ربات‌ها، محتوا و کمپین‌های تلگرامی‌تان را از یک داشبورد ساده
+                ربات‌ها، محتوا و کمپین‌هایتان در تلگرام و بله را از یک داشبورد ساده
                 مدیریت کنید؛ شما ایده بدهید، BotWizard درست سر وقت منتشر
                 می‌کند.
               </p>
@@ -155,7 +156,7 @@ export default function Home() {
 
         <div className="pointer-events-none absolute bottom-5 left-6 hidden items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-300 sm:flex lg:left-12">
           <span className="h-px w-8 bg-slate-200" />
-          Telegram Automation
+          Telegram &amp; Bale Automation
         </div>
       </div>
 

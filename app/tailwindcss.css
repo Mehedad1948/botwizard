@@ -53,8 +53,8 @@
 }
 
 :root {
-  --landing-cyan: #00f6ff;
-  --landing-pink: #ff019e;
+  --landing-cyan: #29a9eb;
+  --landing-pink: #00b894;
   --landing-lilac: #be80f4;
   --landing-shadow:
     0 36px 90px rgb(82 0 88 / 0.22), 0 12px 32px rgb(0 56 86 / 0.12);
@@ -161,6 +161,44 @@
     color: transparent;
   }
 
+  .landing-telegram-text,
+  .landing-bale-text {
+    background-clip: text;
+    color: transparent;
+  }
+
+  .landing-telegram-text {
+    background-image: linear-gradient(
+      100deg,
+      #76d4ff 0%,
+      #2aabee 48%,
+      #168acd 100%
+    );
+  }
+
+  .landing-bale-text {
+    background-image: linear-gradient(
+      100deg,
+      #55e2bd 0%,
+      #0cc7a2 48%,
+      #009b7d 100%
+    );
+  }
+
+  .landing-platform-orbit {
+    filter: drop-shadow(0 0.5rem 0.8rem rgb(15 23 42 / 0.18));
+    transform-origin: 50% 50%;
+    will-change: transform, filter;
+  }
+
+  .landing-platform-orbit-telegram {
+    animation: landing-telegram-orbit 5.3s ease-in-out -1.1s infinite;
+  }
+
+  .landing-platform-orbit-bale {
+    animation: landing-bale-orbit 4.7s ease-in-out -3.2s infinite;
+  }
+
   .landing-robot-float {
     animation: landing-robot-float 5.6s ease-in-out infinite;
     transform-origin: 50% 72%;
@@ -182,7 +220,8 @@
 
   .landing-effects-disabled,
   .landing-effects-disabled .landing-robot-float,
-  .landing-effects-disabled .landing-sparkle-float {
+  .landing-effects-disabled .landing-sparkle-float,
+  .landing-effects-disabled .landing-platform-orbit {
     animation: none;
     filter: none;
     transform: none;
@@ -194,17 +233,43 @@
       .landing-sparkle-float {
       filter: drop-shadow(0 0 18px rgb(255 1 158 / 0.4));
     }
+
+    .landing-robot-group:not(.landing-effects-disabled):hover
+      .landing-platform-orbit {
+      filter: drop-shadow(0 0.7rem 1rem rgb(15 23 42 / 0.24));
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {
     .landing-robot-group,
     .landing-robot-float,
-    .landing-sparkle-float {
+    .landing-sparkle-float,
+    .landing-platform-orbit {
       animation: none;
       filter: none;
       transform: none;
       transition: none;
     }
+  }
+}
+
+@keyframes landing-telegram-orbit {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(-7deg) scale(0.96);
+  }
+  46% {
+    transform: translate3d(0.18rem, -0.65rem, 0) rotate(5deg) scale(1.05);
+  }
+}
+
+@keyframes landing-bale-orbit {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(6deg) scale(1);
+  }
+  58% {
+    transform: translate3d(-0.3rem, -0.42rem, 0) rotate(-5deg) scale(1.07);
   }
 }
 

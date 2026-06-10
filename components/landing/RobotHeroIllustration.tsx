@@ -48,13 +48,31 @@ export function RobotHeroIllustration() {
         className="landing-robot-float h-auto w-full object-contain"
       />
       <Image
+        src="/Telegram_blue_icon.png"
+        alt=""
+        aria-hidden="true"
+        width={512}
+        height={512}
+        sizes="(max-width: 640px) 10vw, (max-width: 1024px) 8vw, 4.5vw"
+        className="landing-platform-orbit landing-platform-orbit-telegram absolute -right-[1%] top-[22%] z-10 h-auto w-[15%] object-contain"
+      />
+      <Image
+        src="/Bale_logo.png"
+        alt=""
+        aria-hidden="true"
+        width={1280}
+        height={1280}
+        sizes="(max-width: 640px) 8vw, (max-width: 1024px) 7vw, 3.5vw"
+        className="landing-platform-orbit landing-platform-orbit-bale absolute right-[14%] top-[42%] z-30 h-auto w-[12%] object-contain"
+      />
+      <Image
         src="/sparkles.png"
         alt=""
         aria-hidden="true"
         width={419}
         height={588}
         sizes="(max-width: 640px) 17vw, (max-width: 1024px) 12vw, 8vw"
-        className="landing-sparkle-float absolute right-0 top-[16%] h-auto w-[24%] object-contain"
+        className="landing-sparkle-float absolute right-0 top-[16%] z-20 h-auto w-[24%] object-contain"
       />
     </div>
   );
