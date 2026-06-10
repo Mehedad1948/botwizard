@@ -5,8 +5,8 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --color-brand-cyan: var(--landing-cyan);
-  --color-brand-pink: var(--landing-pink);
+  --color-brand-telegram: var(--brand-telegram);
+  --color-brand-bale: var(--brand-bale);
   --color-brand-lilac: var(--landing-lilac);
   --shadow-landing: var(--landing-shadow);
   --color-background: var(--background);
@@ -53,8 +53,8 @@
 }
 
 :root {
-  --landing-cyan: #29a9eb;
-  --landing-pink: #00b894;
+  --brand-telegram: #29a9eb;
+  --brand-bale: #00b894;
   --landing-lilac: #be80f4;
   --landing-shadow:
     0 36px 90px rgb(82 0 88 / 0.22), 0 12px 32px rgb(0 56 86 / 0.12);
@@ -143,17 +143,17 @@
     background:
       linear-gradient(
         135deg,
-        var(--landing-cyan) 0%,
-        var(--landing-cyan) 50%,
-        var(--landing-pink) 50%,
-        var(--landing-pink) 100%
+        var(--brand-telegram) 0%,
+        var(--brand-telegram) 50%,
+        var(--brand-bale) 50%,
+        var(--brand-bale) 100%
       );
   }
 
   .landing-gradient-text {
     background-image: linear-gradient(
       100deg,
-      var(--landing-pink),
+      var(--brand-bale),
       var(--landing-lilac) 56%,
       #7b50ed
     );
@@ -183,6 +183,67 @@
       #0cc7a2 48%,
       #009b7d 100%
     );
+  }
+
+  .dashboard-main-background {
+    background:
+      radial-gradient(
+        circle at 12% 18%,
+        rgb(186 230 253 / 0.2),
+        transparent 28rem
+      ),
+      radial-gradient(
+        circle at 84% 34%,
+        rgb(224 242 254 / 0.34),
+        transparent 30rem
+      ),
+      radial-gradient(
+        circle at 52% 88%,
+        rgb(219 234 254 / 0.24),
+        transparent 34rem
+      ),
+      #f8fafc;
+    background-attachment: fixed;
+  }
+
+  .dashboard-shell {
+    --dashboard-accent: var(--brand-telegram);
+    --dashboard-accent-hover: #168acd;
+    --dashboard-accent-soft: rgb(41 169 235 / 0.1);
+    --dashboard-accent-border: rgb(41 169 235 / 0.24);
+    --dashboard-accent-shadow: rgb(41 169 235 / 0.08);
+  }
+
+  .dashboard-shell [data-slot="button"][data-variant="default"],
+  .dashboard-shell [data-slot="button"][data-variant="brand-dark"] {
+    background: var(--dashboard-accent);
+    box-shadow: 0 0.45rem 1.2rem var(--dashboard-accent-shadow);
+  }
+
+  .dashboard-shell [data-slot="button"][data-variant="default"]:hover,
+  .dashboard-shell [data-slot="button"][data-variant="brand-dark"]:hover {
+    background: var(--dashboard-accent-hover);
+  }
+
+  .dashboard-shell [data-slot="button"][data-variant="outline"]:hover,
+  .dashboard-shell [data-slot="button"][data-variant="brand-outline"]:hover {
+    border-color: var(--dashboard-accent-border);
+    background: var(--dashboard-accent-soft);
+    color: var(--dashboard-accent-hover);
+  }
+
+  .dashboard-card {
+    border: 1px solid rgb(226 232 240 / 0.9);
+    background: rgb(255 255 255 / 0.96);
+    box-shadow: 0 0.65rem 1.8rem var(--dashboard-accent-shadow);
+    transition:
+      border-color 200ms ease,
+      box-shadow 200ms ease;
+  }
+
+  .dashboard-card:hover {
+    border-color: var(--dashboard-accent-border);
+    box-shadow: 0 0.9rem 2.2rem var(--dashboard-accent-shadow);
   }
 
   .landing-content-surface {

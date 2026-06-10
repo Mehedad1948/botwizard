@@ -9,7 +9,8 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/80",
+        default:
+          "bg-brand-telegram text-white shadow-sm shadow-brand-telegram/20 hover:bg-[#168acd] focus-visible:ring-brand-telegram/30",
         outline:
           "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         secondary:
@@ -20,15 +21,17 @@ const buttonVariants = cva(
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
         link: "text-primary underline-offset-4 hover:underline",
         brand:
-          "bg-brand-pink text-white shadow-xl shadow-brand-pink/25 hover:-translate-y-1 hover:bg-brand-pink/90 hover:shadow-brand-pink/35 focus-visible:ring-brand-pink/30",
+          "bg-brand-telegram text-white shadow-xl shadow-brand-telegram/20 hover:bg-[#168acd] hover:shadow-brand-telegram/30 focus-visible:ring-brand-telegram/30",
         "brand-dark":
-          "bg-slate-950 text-white shadow-lg shadow-brand-lilac/20 hover:-translate-y-0.5 hover:bg-brand-pink focus-visible:ring-brand-lilac/30",
+          "bg-brand-telegram text-white shadow-lg shadow-brand-telegram/20 hover:bg-[#168acd] hover:shadow-brand-telegram/30 focus-visible:ring-brand-telegram/30",
+        bale:
+          "bg-brand-bale text-white shadow-lg shadow-brand-bale/20 hover:bg-[#009b7d] hover:shadow-brand-bale/30 focus-visible:ring-brand-bale/30",
         "brand-outline":
-          "border-slate-200 bg-white text-slate-700 hover:border-brand-cyan hover:bg-brand-cyan/10 hover:text-slate-950 focus-visible:ring-brand-cyan/30",
+          "border-slate-200 bg-white text-slate-700 hover:border-brand-telegram hover:bg-brand-telegram/10 hover:text-slate-950 focus-visible:ring-brand-telegram/30",
         "brand-ghost":
           "text-slate-500 hover:bg-brand-lilac/10 hover:text-brand-lilac focus-visible:ring-brand-lilac/30",
         glass:
-          "border-white/80 bg-gradient-to-br from-white/80 via-white/45 to-brand-lilac/15 text-slate-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_10px_30px_rgba(90,45,120,0.12)] ring-1 ring-slate-900/8 backdrop-blur-xl backdrop-saturate-150 hover:-translate-y-0.5 hover:border-white hover:from-white/90 hover:via-white/60 hover:to-brand-cyan/20 hover:shadow-[inset_0_1px_0_rgba(255,255,255,1),0_14px_34px_rgba(90,45,120,0.16)] focus-visible:ring-brand-lilac/35 dark:border-white/20 dark:from-white/15 dark:via-white/10 dark:to-brand-lilac/15 dark:text-white dark:ring-white/10",
+          "border-white/80 bg-gradient-to-br from-white/80 via-white/45 to-brand-lilac/15 text-slate-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_10px_30px_rgba(90,45,120,0.12)] ring-1 ring-slate-900/8 backdrop-blur-xl backdrop-saturate-150 hover:border-white hover:from-white/90 hover:via-white/60 hover:to-brand-telegram/20 hover:shadow-[inset_0_1px_0_rgba(255,255,255,1),0_14px_34px_rgba(90,45,120,0.16)] focus-visible:ring-brand-lilac/35 dark:border-white/20 dark:from-white/15 dark:via-white/10 dark:to-brand-lilac/15 dark:text-white dark:ring-white/10",
       },
       size: {
         default:

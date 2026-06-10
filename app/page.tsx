@@ -88,7 +88,7 @@ export default function Home() {
                 </PageSection.Image>
 
                 <PageSection.Content>
-                  <span className="text-sm font-black text-brand-pink">
+                  <span className="text-sm font-black text-brand-bale">
                     {eyebrow}
                   </span>
                   <h2 className="mt-4 text-3xl font-black leading-tight tracking-[-0.035em] text-slate-950 sm:text-4xl lg:text-5xl">
@@ -98,7 +98,7 @@ export default function Home() {
                     {description}
                   </p>
                   <div className="mt-7 inline-flex items-center gap-2 text-sm font-black text-slate-900">
-                    <Send className="size-4 text-brand-cyan" />
+                    <Send className="size-4 text-brand-telegram" />
                     محل دکمه یا فراخوان اقدام
                   </div>
                 </PageSection.Content>

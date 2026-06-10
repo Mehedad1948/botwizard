@@ -21,6 +21,7 @@ export async function toggleCampaignAction(campaignId: string) {
   });
 
   revalidatePath("/dashboard/campaigns");
+  revalidatePath(`/dashboard/campaigns/${campaign.id}`);
   revalidatePath(`/dashboard/bots/${campaign.botId}`);
   revalidatePath("/dashboard");
   return { success: true };

@@ -29,7 +29,7 @@ function PageSectionRoot({
   return (
     <section
       className={cn(
-        "landing-page-section",
+        "landing-page-section max-w-full max-w-dvw",
         reverse && "landing-page-section-reverse",
         className,
       )}

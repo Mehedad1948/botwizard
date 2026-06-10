@@ -7,6 +7,7 @@ import {
   Clock3,
   ExternalLink,
   FileText,
+  ListTree,
   Pause,
   Play,
   Trash2,
@@ -46,15 +47,15 @@ export default async function CampaignsPage() {
 
       {campaigns.length === 0 ? (
         <div className="rounded-2xl border border-dashed p-10 text-center text-sm text-muted-foreground">
-          هنوز کمپینی ثبت نشده است. از داخل ربات تلگرام یا صفحه پست‌ها یک
-          زمان‌بندی ایجاد کنید.
+          هنوز کمپینی ثبت نشده است. از داخل ربات تلگرام یک زمان‌بندی ایجاد
+          کنید.
         </div>
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           {campaigns.map((campaign) => (
             <article
               key={campaign.id}
-              className="space-y-4 rounded-2xl border bg-card p-5 shadow-sm"
+              className="dashboard-card space-y-4 rounded-2xl p-5"
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -104,6 +105,12 @@ export default async function CampaignsPage() {
               </div>
 
               <div className="flex flex-wrap gap-2 border-t pt-4">
+                <Button asChild size="sm">
+                  <Link href={`/dashboard/campaigns/${campaign.id}`}>
+                    <ListTree />
+                    پست و جزئیات
+                  </Link>
+                </Button>
                 <Button asChild variant="outline" size="sm">
                   <Link href={`/dashboard/bots/${campaign.bot.id}#campaigns`}>
                     <ExternalLink />
@@ -113,6 +120,7 @@ export default async function CampaignsPage() {
                 <ConfirmedActionButton
                   action={toggleCampaignAction.bind(null, campaign.id)}
                   pendingLabel="در حال تغییر..."
+                  variant="default"
                 >
                   {campaign.isActive ? <Pause /> : <Play />}
                   {campaign.isActive ? "توقف" : "فعال‌سازی"}

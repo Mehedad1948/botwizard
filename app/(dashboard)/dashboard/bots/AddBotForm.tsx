@@ -56,6 +56,8 @@ export function AddBotForm() {
       </div>
       <Button
         type="submit"
+        variant="brand-dark"
+        size="brand-sm"
         disabled={pending}
         className="w-full whitespace-nowrap sm:w-auto"
       >

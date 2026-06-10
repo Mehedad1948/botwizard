@@ -79,8 +79,8 @@ app/
     dashboard/page.tsx               User summary counts
     dashboard/bots/                  Bot list/add/delete UI and actions
     dashboard/bots/[botId]/          Bot-scoped campaigns, posts, and chats
-    dashboard/posts/                 Saved post list and campaign creation
-    dashboard/campaigns/             Campaign list/toggle/delete UI
+    dashboard/posts/                 Legacy redirect to campaigns
+    dashboard/campaigns/             Campaign list and campaign detail UI
   api/
     auth/request-otp/route.ts        Generates and sends OTP
     auth/telegram/route.ts           Telegram Login Widget authentication
@@ -108,6 +108,7 @@ prisma/
 
 components/
   auth/TelegramLoginWidget.tsx       Alternative Telegram login client
+  dashboard/DashboardShell.tsx       Responsive dashboard navigation shell
   landing/LandingHero.tsx            Full-screen sticky landing hero
   landing/PageSection.tsx            Compound server-rendered content section
   ui/                                Generated shadcn components
@@ -126,9 +127,10 @@ instrumentation.ts                   Optional process-wide outbound proxy
 - `/dashboard/bots` - Adds, lists, and deletes bots.
 - `/dashboard/bots/:botId` - Full bot workspace for status, campaigns, history,
   posts, and connected destinations.
-- `/dashboard/posts` - Lists posts, sends immediately, and creates interval or
-  Tehran-time fixed-hour campaigns for known connected destinations.
+- `/dashboard/posts` - Legacy route that redirects to `/dashboard/campaigns`.
 - `/dashboard/campaigns` - Aggregate campaign list with bot links and controls.
+- `/dashboard/campaigns/:campaignId` - Campaign details, its associated post,
+  recent history, immediate send, and new scheduling actions.
 
 The login footer links to `/policy`, but no policy route exists.
 
@@ -372,8 +374,8 @@ There is no test script or test suite.
 - The root document is Persian: `lang="fa"` and `dir="rtl"`.
 - The root font is `Vazirmatn` from `next/font/google`.
 - Tailwind CSS is imported from `app/tailwindcss.css`.
-- Landing-page colors are reusable as `brand-cyan` (`#00F6FF`),
-  `brand-pink` (`#FF019E`), and `brand-lilac` (`#BE80F4`).
+- Brand colors use explicit semantic tokens: `brand-telegram` for Telegram blue,
+  `brand-bale` for Bale green, and `brand-lilac` for decorative purple.
 - `components/ui/button.tsx` includes landing variants `brand`, `brand-dark`,
   `brand-outline`, and `brand-ghost`, plus `brand` and `brand-sm` sizes.
 - The landing illustration currently uses
@@ -397,6 +399,18 @@ There is no test script or test suite.
 - shadcn aliases use `@/components`, `@/components/ui`, and `@/lib`.
 - UI components are a mix of Server Components and small Client Components.
 - Most user-facing copy is Persian.
+- The authenticated dashboard layout keeps session enforcement in the Server
+  Component and passes page content into `DashboardShell`. The shell is the
+  narrow Client Component responsible for active navigation state and the
+  mobile overlay sidebar. The compact translucent header and sidebar brand row
+  share the same height, sidebar navigation scrolls independently, and the main
+  content uses a fixed low-contrast blue cloud background. Dashboard navigation,
+  buttons, icons, card borders, and shadows share one restrained Telegram-blue
+  accent; secondary colors are reserved for semantic statuses and warnings.
+- The bot token form and BotFather guide are hidden inside the client-side
+  `AddBotPanel` until the user selects "افزودن ربات جدید". Campaign cards link
+  to a dedicated detail route; the data model associates exactly one `Post`
+  with each `Campaign`.
 
 `components.json` points to `app/globals.css`, but the actual stylesheet is
 `app/tailwindcss.css`. Account for this when generating new shadcn components.

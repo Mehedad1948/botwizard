@@ -160,7 +160,7 @@ export function CreateCampaignForm({
         <Button
           type="button"
           size="sm"
-          variant="secondary"
+          variant="outline"
           disabled={pending}
           onClick={handleSendNow}
         >

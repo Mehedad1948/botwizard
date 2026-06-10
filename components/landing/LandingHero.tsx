@@ -43,11 +43,11 @@ export function LandingHero() {
             className="flex items-center gap-2.5 text-slate-950"
             aria-label="Bot Wizard"
           >
-            <span className="flex size-10 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-lg shadow-brand-pink/20">
+            <span className="flex size-10 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-lg shadow-brand-bale/20">
               <Bot className="size-5" />
             </span>
             <span className="text-lg font-black tracking-tight">
-              Bot<span className="text-brand-pink">Wizard</span>
+              Bot<span className="text-brand-bale">Wizard</span>
             </span>
           </Link>
 
@@ -126,11 +126,11 @@ export function LandingHero() {
           <div className="relative z-0 flex min-h-0 items-center justify-center overflow-visible px-5 pb-1 pt-2 sm:px-10 sm:pb-3 lg:order-2 lg:px-10 lg:py-8 xl:px-16">
             <div
               aria-hidden="true"
-              className="absolute left-1/2 top-1/2 h-[76%] w-[72%] -translate-x-1/2 -translate-y-1/2 rotate-[-5deg] rounded-[2.5rem] bg-brand-cyan/20 sm:h-[72%] sm:w-[68%] lg:w-[76%] lg:rounded-[3.5rem]"
+              className="absolute left-1/2 top-1/2 h-[76%] w-[72%] -translate-x-1/2 -translate-y-1/2 rotate-[-5deg] rounded-[2.5rem] bg-brand-telegram/20 sm:h-[72%] sm:w-[68%] lg:w-[76%] lg:rounded-[3.5rem]"
             />
             <div
               aria-hidden="true"
-              className="absolute left-[14%] top-[15%] hidden size-20 rounded-full bg-brand-pink/15 blur-xl sm:block"
+              className="absolute left-[14%] top-[15%] hidden size-20 rounded-full bg-brand-bale/15 blur-xl sm:block"
             />
             <div
               aria-hidden="true"

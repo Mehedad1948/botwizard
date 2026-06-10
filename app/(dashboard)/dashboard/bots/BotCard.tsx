@@ -21,7 +21,7 @@ type BotWithCounts = Bot & {
 
 export function BotCard({ bot }: { bot: BotWithCounts }) {
   return (
-    <article className="flex flex-col gap-5 rounded-2xl border bg-card p-5 shadow-sm transition-shadow hover:shadow-md">
+    <article className="dashboard-card flex flex-col gap-5 rounded-2xl p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-lg font-semibold" dir="ltr">
@@ -40,7 +40,7 @@ export function BotCard({ bot }: { bot: BotWithCounts }) {
             {bot.isActive ? "فعال و آماده دریافت" : "غیرفعال"}
           </p>
         </div>
-        <Button asChild size="sm">
+        <Button asChild variant="brand-dark" size="sm">
           <Link href={`/dashboard/bots/${bot.id}`}>
             مدیریت کامل
             <ArrowLeft />
