@@ -187,17 +187,26 @@
 
   .landing-content-surface {
     min-height: 100svh;
-    overflow: clip;
-    border-radius: 2rem 2rem 0 0;
-    box-shadow: 0 -2rem 5rem rgb(15 23 42 / 0.2);
+    box-shadow: 0 -0.2rem 0.7rem rgb(109 40 217 / 0.1);
   }
 
   .landing-page-section {
+    position: relative;
+    z-index: var(--landing-section-stack);
+    min-height: 135svh;
+  }
+
+  .landing-page-section-inner {
+    position: sticky;
+    top: 0;
     display: grid;
-    min-height: 88svh;
+    min-height: 100svh;
+    width: min(100%, 80rem);
+    margin-inline: auto;
     align-items: center;
     gap: 3rem;
-    padding-block: clamp(5rem, 11vw, 9rem);
+    padding: clamp(4.5rem, 8vw, 7rem) 1.5rem;
+    background: white;
   }
 
   .landing-page-section-image,
@@ -210,13 +219,10 @@
   }
 
   @media (min-width: 64rem) {
-    .landing-content-surface {
-      border-radius: 3.5rem 3.5rem 0 0;
-    }
-
-    .landing-page-section {
+    .landing-page-section-inner {
       grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
       gap: clamp(4rem, 8vw, 8rem);
+      padding-inline: 3.5rem;
     }
 
     .landing-page-section-image {
@@ -242,7 +248,7 @@
     .landing-page-section-content {
       animation-fill-mode: both;
       animation-timeline: view(block);
-      animation-range: entry 6% cover 38%;
+      animation-range: entry 0% cover 22%;
       animation-timing-function: linear;
     }
 

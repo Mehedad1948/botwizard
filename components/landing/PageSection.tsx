@@ -1,19 +1,31 @@
-import type { ComponentPropsWithoutRef } from "react";
+import type { ComponentPropsWithoutRef, CSSProperties } from "react";
 
 import { cn } from "@/lib/utils";
 
 type PageSectionProps = ComponentPropsWithoutRef<"section"> & {
   reverse?: boolean;
+  stackIndex?: number;
 };
 
 type PageSectionSlotProps = ComponentPropsWithoutRef<"div">;
 
+type PageSectionStyle = CSSProperties & {
+  "--landing-section-stack": number;
+};
+
 function PageSectionRoot({
   reverse = false,
+  stackIndex = 0,
   className,
   children,
+  style,
   ...props
 }: PageSectionProps) {
+  const sectionStyle: PageSectionStyle = {
+    ...style,
+    "--landing-section-stack": stackIndex,
+  };
+
   return (
     <section
       className={cn(
@@ -21,9 +33,10 @@ function PageSectionRoot({
         reverse && "landing-page-section-reverse",
         className,
       )}
+      style={sectionStyle}
       {...props}
     >
-      {children}
+      <div className="landing-page-section-inner">{children}</div>
     </section>
   );
 }

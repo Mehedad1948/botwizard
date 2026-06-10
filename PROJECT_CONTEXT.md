@@ -388,8 +388,12 @@ There is no test script or test suite.
   sticky while the white content surface scrolls over it.
 - Subsequent landing content uses the compound Server Component API
   `PageSection`, `PageSection.Image`, and `PageSection.Content`. Its reveal
-  effects use CSS view timelines, fall back to a fully visible static layout,
-  and disable motion for `prefers-reduced-motion`.
+  effects use CSS view timelines, and each viewport-height section sticks and
+  is covered by the next square-cornered section without a broad section
+  shadow. Each section has extra scroll track after becoming fully visible so
+  readers have a pause before the next sheet arrives. Unsupported browsers
+  receive a fully visible static layout, and motion is disabled for
+  `prefers-reduced-motion`.
 - shadcn aliases use `@/components`, `@/components/ui`, and `@/lib`.
 - UI components are a mix of Server Components and small Client Components.
 - Most user-facing copy is Persian.

@@ -45,7 +45,7 @@ export default function Home() {
       <LandingHero />
 
       <div className="landing-content-surface relative z-10 bg-white">
-        <div className="mx-auto max-w-7xl px-6 sm:px-10 lg:px-14">
+        <div>
           {placeholderSections.map(
             ({
               eyebrow,
@@ -55,17 +55,21 @@ export default function Home() {
               accent,
               card,
               reverse,
-            }) => (
-              <PageSection key={title} reverse={reverse}>
+            }, index) => (
+              <PageSection
+                key={title}
+                reverse={reverse}
+                stackIndex={index + 1}
+              >
                 <PageSection.Image>
                   <div
-                    className={`relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-[2rem] ${card} p-8 shadow-[0_30px_80px_rgb(15_23_42/0.12)] sm:rounded-[3rem]`}
+                    className={`relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-[2rem] ${card} p-8 shadow-[0_20px_50px_rgb(109_40_217/0.11)] sm:rounded-[3rem]`}
                   >
                     <div
                       aria-hidden="true"
                       className={`absolute -left-[12%] -top-[18%] size-[58%] rounded-full bg-gradient-to-br ${accent} opacity-35 blur-3xl`}
                     />
-                    <div className="relative w-full max-w-sm rounded-[1.75rem] border border-white/80 bg-white/85 p-5 shadow-xl shadow-slate-900/10 backdrop-blur">
+                    <div className="relative w-full max-w-sm rounded-[1.75rem] border border-white/80 bg-white/85 p-5 shadow-[0_16px_36px_rgb(109_40_217/0.1)] backdrop-blur">
                       <div className="flex items-center justify-between">
                         <span className="h-2.5 w-24 rounded-full bg-slate-200" />
                         <span
