@@ -65,7 +65,7 @@ export default async function DashboardPage({
   return (
     <div className="space-y-7">
       <div className="flex items-start gap-3">
-        <span className="mt-0.5 flex size-10 items-center justify-center rounded-2xl bg-sky-100 text-sky-700">
+        <span className="dashboard-accent-surface mt-0.5 flex size-10 items-center justify-center rounded-2xl">
           <Sparkles className="size-5" />
         </span>
         <div>
@@ -86,7 +86,7 @@ export default async function DashboardPage({
             className="dashboard-card gap-0 rounded-2xl py-0"
           >
             <CardContent className="flex items-center gap-4 p-5">
-              <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-sky-100 text-sky-700">
+              <span className="dashboard-accent-surface flex size-12 shrink-0 items-center justify-center rounded-2xl">
                 <Icon className="size-5" />
               </span>
               <div className="min-w-0">

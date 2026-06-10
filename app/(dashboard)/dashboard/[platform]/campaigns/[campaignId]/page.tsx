@@ -134,12 +134,12 @@ export default async function CampaignDetailPage({
         <article className="dashboard-card space-y-5 rounded-2xl p-5 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-black text-sky-700">پست مرتبط</p>
+              <p className="dashboard-accent-text text-xs font-black">پست مرتبط</p>
               <h2 className="mt-2 text-xl font-black text-slate-950">
                 محتوای انتخاب‌شده برای این کمپین
               </h2>
             </div>
-            <span className="flex items-center gap-1.5 rounded-full bg-sky-50 px-3 py-1.5 text-xs font-bold text-sky-700">
+            <span className="dashboard-accent-surface flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold">
               {campaign.post.mediaType === "IMAGE" ? (
                 <ImageIcon className="size-3.5" />
               ) : campaign.post.mediaType === "VIDEO" ? (
@@ -153,7 +153,7 @@ export default async function CampaignDetailPage({
             </span>
           </div>
 
-          <div className="min-h-36 rounded-2xl border border-sky-100 bg-sky-50/55 p-4">
+          <div className="dashboard-accent-surface min-h-36 rounded-2xl border p-4">
             <p className="whitespace-pre-wrap text-sm leading-7 text-slate-700">
               {campaign.post.content || "محتوای رسانه‌ای بدون متن"}
             </p>
@@ -257,7 +257,7 @@ function DetailMetric({
 }) {
   return (
     <div className="dashboard-card rounded-2xl p-4">
-      <div className="flex items-center gap-2 text-sky-700 [&_svg]:size-4">
+      <div className="dashboard-accent-text flex items-center gap-2 [&_svg]:size-4">
         {icon}
         <span className="text-xs font-black">{label}</span>
       </div>

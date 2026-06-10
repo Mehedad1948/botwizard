@@ -434,9 +434,11 @@ There is no test script or test suite.
   narrow Client Component responsible for active navigation state and the
   mobile overlay sidebar. The compact translucent header and sidebar brand row
   share the same height, sidebar navigation scrolls independently, and the main
-  content uses a fixed low-contrast blue cloud background. Dashboard navigation,
-  buttons, icons, card borders, and shadows share one restrained Telegram-blue
-  accent; secondary colors are reserved for semantic statuses and warnings.
+  content uses a fixed low-contrast platform-tinted cloud background. The
+  platform route sets semantic CSS variables on the shell: Telegram uses its
+  blue brand and Bale uses its green brand for buttons, focus rings, navigation,
+  icons, borders, card shadows, and restrained decorative surfaces. This is a
+  CSS-only theme switch with no context provider or client-side theme state.
 - The header/sidebar switcher displays both platform logos and only preserves
   list-level sections when changing platforms, so resource IDs never cross
   platform boundaries.

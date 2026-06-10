@@ -50,7 +50,10 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   }, [mobileOpen]);
 
   return (
-    <div className="dashboard-shell flex h-svh overflow-hidden bg-slate-50">
+    <div
+      className="dashboard-shell flex h-svh overflow-hidden bg-slate-50"
+      data-platform={platform}
+    >
       <aside className="hidden min-h-0 w-72 shrink-0 border-l border-slate-200/80 bg-white md:flex md:flex-col">
         <DashboardBrand platform={platform} />
         <PlatformSwitcher pathname={pathname} platform={platform} />
@@ -61,7 +64,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between border-b border-sky-100/80 bg-white/85 px-4 shadow-sm shadow-sky-950/5 backdrop-blur-xl sm:px-6 lg:px-8">
+        <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/85 px-4 shadow-sm shadow-slate-950/5 backdrop-blur-xl sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <Button
               type="button"
@@ -187,7 +190,7 @@ function PlatformSwitcher({
             className={cn(
               "flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-black transition-colors",
               active
-                ? "border-sky-200 bg-sky-50 text-slate-900"
+                ? "dashboard-platform-active"
                 : "border-slate-200 bg-white text-slate-400 hover:bg-slate-50 hover:text-slate-700",
             )}
           >
@@ -212,7 +215,7 @@ function DashboardBrand({ platform }: { platform: PlatformSlug }) {
       href={dashboardPath(platform)}
       className="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200/80 px-5 transition-colors hover:bg-slate-50"
     >
-      <span className="flex size-11 items-center justify-center rounded-2xl bg-brand-telegram text-white shadow-lg shadow-brand-telegram/20">
+      <span className="dashboard-accent-icon flex size-11 items-center justify-center rounded-2xl">
         <Bot className="size-5" />
       </span>
       <span>
@@ -254,18 +257,13 @@ function DashboardNavigation({
             aria-current={active ? "page" : undefined}
             onClick={onNavigate}
             className={cn(
-              "group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-bold ring-1 ring-transparent transition-all duration-200",
-              active
-                ? "bg-sky-100 text-sky-950 ring-sky-200 shadow-sm"
-                : "text-slate-600 hover:bg-sky-50 hover:text-sky-900",
+              "dashboard-navigation-link group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-bold ring-1 ring-transparent transition-all duration-200",
+              !active && "text-slate-600",
             )}
           >
             <span
               className={cn(
-                "flex size-9 items-center justify-center rounded-xl transition-transform group-hover:scale-105",
-                active
-                  ? "bg-sky-200/70 text-sky-700"
-                  : "bg-slate-100 text-slate-500 group-hover:bg-sky-100 group-hover:text-sky-700",
+                "dashboard-navigation-icon flex size-9 items-center justify-center rounded-xl transition-transform group-hover:scale-105",
               )}
             >
               <Icon className="size-4" />
