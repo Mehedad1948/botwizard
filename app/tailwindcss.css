@@ -172,6 +172,20 @@
     color: transparent;
   }
 
+  .site-footer-link {
+    color: #64748b;
+    transition:
+      color 180ms ease,
+      transform 180ms ease,
+      text-shadow 180ms ease;
+  }
+
+  .site-footer-link:hover {
+    color: #0f172a;
+    transform: translateX(-0.2rem);
+    text-shadow: 0 0 18px rgb(41 169 235 / 0.14);
+  }
+
   .landing-telegram-text {
     background-image: linear-gradient(
       100deg,

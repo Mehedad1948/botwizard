@@ -74,6 +74,10 @@ app/
   page.tsx                           Landing composition and content sections
   login/page.tsx                     Phone/OTP login UI
   actions/auth.ts                    OTP verification Server Action
+  (site)/
+    layout.tsx                       Shared public-site footer boundary
+    page.tsx                         Landing composition and content sections
+    login/page.tsx                   Phone/OTP login UI
   (dashboard)/
     layout.tsx                       Session-gated dashboard shell
     dashboard/[platform]/page.tsx    Platform-scoped summary counts
@@ -120,6 +124,7 @@ components/
   dashboard/DashboardShell.tsx       Responsive dashboard navigation shell
   landing/LandingHero.tsx            Full-screen sticky landing hero
   landing/PageSection.tsx            Compound server-rendered content section
+  site/SiteFooter.tsx                Shared Telegram/Bale public footer
   ui/                                Generated shadcn components
 
 instrumentation.ts                   Optional process-wide outbound proxy
@@ -402,6 +407,9 @@ There is no test script or test suite.
 ## Styling and UI Conventions
 
 - The root document is Persian: `lang="fa"` and `dir="rtl"`.
+- Public pages live under the URL-transparent `(site)` route group and share a
+  dark responsive footer. Dashboard routes remain in `(dashboard)` and never
+  render public-site chrome.
 - The root font is `Vazirmatn` from `next/font/google`.
 - Tailwind CSS is imported from `app/tailwindcss.css`.
 - Brand colors use explicit semantic tokens: `brand-telegram` for Telegram blue,
@@ -452,6 +460,9 @@ There is no test script or test suite.
   `AddBotPanel` until the user selects "افزودن ربات جدید". Campaign cards link
   to a dedicated detail route; the data model associates exactly one `Post`
   with each `Campaign`.
+- `SiteFooter` is a Server Component with no client runtime. It includes the
+  public CTA, product navigation, official Telegram/Bale documentation links,
+  platform imagery, and copyright year.
 
 `components.json` points to `app/globals.css`, but the actual stylesheet is
 `app/tailwindcss.css`. Account for this when generating new shadcn components.
