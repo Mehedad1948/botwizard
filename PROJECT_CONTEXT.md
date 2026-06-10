@@ -425,7 +425,12 @@ There is no test script or test suite.
   shadow. Each section has extra scroll track after becoming fully visible so
   readers have a pause before the next sheet arrives. Unsupported browsers
   receive a fully visible static layout, and motion is disabled for
-  `prefers-reduced-motion`.
+  `prefers-reduced-motion`. Each section clips horizontal overflow so the
+  left/right entrance transforms cannot widen the page or create an x-axis
+  scrollbar; vertical overflow remains available for sticky positioning. The
+  document and landing root also use `overflow-x: clip` and explicit full-width
+  constraints to prevent transformed visual bounds from becoming root-level
+  horizontal scroll overflow in RTL browsers.
 - shadcn aliases use `@/components`, `@/components/ui`, and `@/lib`.
 - UI components are a mix of Server Components and small Client Components.
 - Most user-facing copy is Persian.

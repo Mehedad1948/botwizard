@@ -136,6 +136,11 @@
   html {
     @apply font-sans;
   }
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: clip;
+  }
 }
 
 @layer components {
@@ -341,6 +346,7 @@
     position: relative;
     z-index: var(--landing-section-stack);
     min-height: 135svh;
+    overflow-x: clip;
   }
 
   .landing-page-section-inner {

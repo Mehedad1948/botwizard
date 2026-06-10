@@ -41,7 +41,7 @@ const placeholderSections = [
 
 export default function Home() {
   return (
-    <main className="relative bg-slate-950">
+    <main className="relative w-full min-w-0 overflow-x-clip bg-slate-950">
       <LandingHero />
 
       <div className="landing-content-surface relative z-10 bg-white">
