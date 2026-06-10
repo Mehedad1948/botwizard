@@ -6,9 +6,14 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { AddBotForm } from "./AddBotForm";
+import {
+  platformConfigs,
+  type PlatformSlug,
+} from "@/services/bot-platforms/config";
 
-export function AddBotPanel() {
+export function AddBotPanel({ platform }: { platform: PlatformSlug }) {
   const [open, setOpen] = useState(false);
+  const config = platformConfigs[platform];
 
   return (
     <section className="space-y-4">
@@ -41,15 +46,15 @@ export function AddBotPanel() {
             </h3>
             <ol className="list-inside list-decimal space-y-2">
               <li>
-                در تلگرام وارد{" "}
+                در {config.labelFa} وارد{" "}
                 <a
-                  href="https://t.me/BotFather"
+                  href={config.tokenGuideUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="font-bold text-sky-600 hover:underline"
                   dir="ltr"
                 >
-                  @BotFather
+                  {config.tokenIssuer}
                 </a>{" "}
                 شوید.
               </li>
@@ -64,17 +69,23 @@ export function AddBotPanel() {
                 را ارسال کنید.
               </li>
               <li>
-                یک نام و سپس نام کاربری مختوم به{" "}
-                <code className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-800">
-                  bot
-                </code>{" "}
-                بفرستید.
+                {platform === "telegram" ? (
+                  <>
+                    یک نام و سپس نام کاربری مختوم به{" "}
+                    <code className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-800">
+                      bot
+                    </code>{" "}
+                    بفرستید.
+                  </>
+                ) : (
+                  "نام و شناسه ربات را طبق راهنمای BotFather بله ثبت کنید."
+                )}
               </li>
               <li>توکن دریافتی را در کادر زیر وارد کنید.</li>
             </ol>
           </div>
 
-          <AddBotForm />
+          <AddBotForm platform={platform} />
         </div>
       )}
     </section>

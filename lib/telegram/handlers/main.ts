@@ -6,6 +6,7 @@ import {
 } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { callTelegramAPI } from "../api";
+import { getBotPlatformProvider } from "@/services/bot-platforms/provider";
 
 // تابعی برای پردازش و ثبت توکن (برای جلوگیری از تکرار کد)
 async function processNewBotToken(chatId: string, telegramId: string, userToken: string, mainBotToken: string) {
@@ -14,27 +15,40 @@ async function processNewBotToken(chatId: string, telegramId: string, userToken:
   const loadingMsgId = loadingMsgRes?.result?.message_id;
 
   try {
-    const botInfoRes = await fetch(`https://api.telegram.org/bot${userToken}/getMe`);
-    const botInfo = await botInfoRes.json();
-    if (!botInfo.ok) throw new Error("توکن نامعتبر است. لطفاً توکن صحیح را کپی و ارسال کنید.");
+    const provider = getBotPlatformProvider("TELEGRAM");
+    const botInfo = await provider.getMe(userToken);
 
     const user = await prisma.user.findUnique({ where: { telegramId } });
     if (!user) throw new Error("ابتدا دستور /start را ارسال کنید.");
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_BASE_URL?.replace(/\/$/, "") || "https://botwizard-oesj.vercel.app";
-    const webhookUrl = `${baseUrl}/api/telegram/webhook/${userToken}`;
-    
-    const setWebhookRes = await fetch(`https://api.telegram.org/bot${userToken}/setWebhook?url=${webhookUrl}`);
-    const setWebhookData = await setWebhookRes.json();
-    if (!setWebhookData.ok) throw new Error("خطا در تنظیم وب‌هوک در سرور تلگرام.");
+    const webhookUrl = `${baseUrl}/api/bots/webhook/telegram/${userToken}`;
+    await provider.setWebhook(userToken, webhookUrl);
 
     await prisma.bot.upsert({
-      where: { token: userToken },
-      update: { userId: user.id, username: botInfo.result.username, isActive: true },
-      create: { userId: user.id, token: userToken, username: botInfo.result.username, isActive: true }
+      where: {
+        platform_token: {
+          platform: "TELEGRAM",
+          token: userToken,
+        },
+      },
+      update: {
+        userId: user.id,
+        username: botInfo.username!,
+        ownerPlatformUserId: telegramId,
+        isActive: true,
+      },
+      create: {
+        userId: user.id,
+        platform: "TELEGRAM",
+        token: userToken,
+        username: botInfo.username!,
+        ownerPlatformUserId: telegramId,
+        isActive: true,
+      },
     });
 
-    const successText = `✅ **ربات شما (@${botInfo.result.username}) با موفقیت متصل شد!**\n\nمراحل بعدی:\n۱. وارد ربات خودتان شوید.\n۲. دستور /start را ارسال کنید.\n۳. ربات را در گروه‌های هدف خود ادمین کنید.`;
+    const successText = `✅ **ربات شما (@${botInfo.username}) با موفقیت متصل شد!**\n\nمراحل بعدی:\n۱. وارد ربات خودتان شوید.\n۲. دستور /start را ارسال کنید.\n۳. ربات را در گروه‌های هدف خود ادمین کنید.`;
     
     if (loadingMsgId) {
       await callTelegramAPI("editMessageText", { chat_id: chatId, message_id: loadingMsgId, text: successText, parse_mode: 'Markdown' }, mainBotToken);
@@ -317,7 +331,10 @@ export async function handleMainBotCallback(callback_query: any, mainBotToken: s
 
   // پاسخ به دکمه "مدیریت ربات‌های من"
   if (data === "main_mybots") {
-    const user = await prisma.user.findUnique({ where: { telegramId }, include: { bots: true } });
+    const user = await prisma.user.findUnique({
+      where: { telegramId },
+      include: { bots: { where: { platform: "TELEGRAM" } } },
+    });
     if (!user || user.bots.length === 0) {
       await callTelegramAPI("sendMessage", { chat_id: chatId, text: "📭 شما هیچ ربات ثبت شده‌ای ندارید." }, mainBotToken);
       await callTelegramAPI("answerCallbackQuery", { callback_query_id: callback_query.id }, mainBotToken);
@@ -339,7 +356,13 @@ export async function handleMainBotCallback(callback_query: any, mainBotToken: s
   // باز کردن منوی یک ربات
   if (data.startsWith("main_botmenu_")) {
     const botId = data.replace("main_botmenu_", "");
-    const bot = await prisma.bot.findUnique({ where: { id: botId } });
+    const bot = await prisma.bot.findFirst({
+      where: {
+        id: botId,
+        platform: "TELEGRAM",
+        user: { telegramId },
+      },
+    });
     if (!bot) return;
 
     const keyboard = [
@@ -358,7 +381,13 @@ export async function handleMainBotCallback(callback_query: any, mainBotToken: s
   // تغییر وضعیت (فعال/غیرفعال) ربات
   if (data.startsWith("main_tglbot_")) {
     const botId = data.replace("main_tglbot_", "");
-    const bot = await prisma.bot.findUnique({ where: { id: botId } });
+    const bot = await prisma.bot.findFirst({
+      where: {
+        id: botId,
+        platform: "TELEGRAM",
+        user: { telegramId },
+      },
+    });
     if (bot) {
       await prisma.bot.update({ where: { id: botId }, data: { isActive: !bot.isActive } });
       

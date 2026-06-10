@@ -5,8 +5,18 @@ import prisma from "@/lib/prisma";
 import { calculateNextRunForSpecificTimes } from "@/lib/scheduling";
 import { getSession } from "@/lib/session";
 import { revalidatePath } from "next/cache";
+import {
+  dashboardPath,
+  platformConfigs,
+  platformFromSlug,
+  type PlatformSlug,
+} from "@/services/bot-platforms/config";
+import { getBotPlatformProviderBySlug } from "@/services/bot-platforms/provider";
 
-export async function createPostAction(formData: FormData) {
+export async function createPostAction(
+  platform: PlatformSlug,
+  formData: FormData,
+) {
   const session = await getSession();
   if (!session?.userId) {
     throw new Error("عدم دسترسی. لطفا وارد شوید.");
@@ -24,7 +34,11 @@ export async function createPostAction(formData: FormData) {
   try {
     // تایید اینکه این ربات متعلق به همین کاربر است (جلوگیری از دسترسی غیرمجاز)
     const bot = await prisma.bot.findFirst({
-      where: { id: botId, userId: session.userId },
+      where: {
+        id: botId,
+        userId: session.userId,
+        platform: platformFromSlug(platform),
+      },
     });
 
     if (!bot) {
@@ -40,20 +54,26 @@ export async function createPostAction(formData: FormData) {
       },
     });
 
-    revalidatePath("/dashboard/posts");
+    revalidatePath(dashboardPath(platform, "campaigns"));
   } catch {
     throw new Error("خطایی در ایجاد پست رخ داد.");
   }
 }
 
-export async function deletePostAction(postId: string) {
+export async function deletePostAction(
+  platform: PlatformSlug,
+  postId: string,
+) {
   const session = await getSession();
   if (!session?.userId) return { error: "ابتدا وارد حساب خود شوید." };
 
   const post = await prisma.post.findFirst({
     where: {
       id: postId,
-      bot: { userId: session.userId },
+      bot: {
+        userId: session.userId,
+        platform: platformFromSlug(platform),
+      },
     },
     select: { id: true, botId: true },
   });
@@ -62,14 +82,16 @@ export async function deletePostAction(postId: string) {
 
   await prisma.post.delete({ where: { id: post.id } });
 
-  revalidatePath("/dashboard/posts");
-  revalidatePath("/dashboard/campaigns");
-  revalidatePath(`/dashboard/bots/${post.botId}`);
-  revalidatePath("/dashboard");
+  revalidatePath(dashboardPath(platform, "campaigns"));
+  revalidatePath(dashboardPath(platform, `bots/${post.botId}`));
+  revalidatePath(dashboardPath(platform));
   return { success: true };
 }
 
-export async function createCampaignFromDashboardAction(formData: FormData) {
+export async function createCampaignFromDashboardAction(
+  platform: PlatformSlug,
+  formData: FormData,
+) {
   const session = await getSession();
   if (!session?.userId) return { error: "ابتدا وارد حساب خود شوید." };
 
@@ -105,7 +127,13 @@ export async function createCampaignFromDashboardAction(formData: FormData) {
   }
 
   const post = await prisma.post.findFirst({
-    where: { id: postId, bot: { userId: session.userId } },
+    where: {
+      id: postId,
+      bot: {
+        userId: session.userId,
+        platform: platformFromSlug(platform),
+      },
+    },
     select: { id: true, botId: true },
   });
   if (!post) return { error: "پست یافت نشد یا به آن دسترسی ندارید." };
@@ -114,7 +142,10 @@ export async function createCampaignFromDashboardAction(formData: FormData) {
     where: {
       id: connectedChatId,
       botId: post.botId,
-      bot: { userId: session.userId },
+      bot: {
+        userId: session.userId,
+        platform: platformFromSlug(platform),
+      },
     },
   });
 
@@ -145,14 +176,16 @@ export async function createCampaignFromDashboardAction(formData: FormData) {
     },
   });
 
-  revalidatePath("/dashboard/campaigns");
-  revalidatePath("/dashboard/posts");
-  revalidatePath(`/dashboard/bots/${post.botId}`);
-  revalidatePath("/dashboard");
+  revalidatePath(dashboardPath(platform, "campaigns"));
+  revalidatePath(dashboardPath(platform, `bots/${post.botId}`));
+  revalidatePath(dashboardPath(platform));
   return { success: true };
 }
 
-export async function sendPostNowAction(formData: FormData) {
+export async function sendPostNowAction(
+  platform: PlatformSlug,
+  formData: FormData,
+) {
   const session = await getSession();
   if (!session?.userId) return { error: "ابتدا وارد حساب خود شوید." };
 
@@ -160,9 +193,22 @@ export async function sendPostNowAction(formData: FormData) {
   const connectedChatId = String(formData.get("connectedChatId") ?? "");
 
   const post = await prisma.post.findFirst({
-    where: { id: postId, bot: { userId: session.userId } },
+    where: {
+      id: postId,
+      bot: {
+        userId: session.userId,
+        platform: platformFromSlug(platform),
+      },
+    },
     include: {
-      bot: { select: { id: true, token: true, isActive: true } },
+      bot: {
+        select: {
+          id: true,
+          token: true,
+          isActive: true,
+          platform: true,
+        },
+      },
     },
   });
 
@@ -194,24 +240,24 @@ export async function sendPostNowAction(formData: FormData) {
         };
 
   try {
-    const response = await fetch(
-      `https://api.telegram.org/bot${post.bot.token}/${method}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      }
+    const result = await getBotPlatformProviderBySlug(platform).call(
+      post.bot.token,
+      method,
+      payload,
     );
-    const result = await response.json();
 
-    if (!response.ok || !result.ok) {
+    if (!result.ok) {
       return {
-        error: result.description || "ارسال پیام در تلگرام انجام نشد.",
+        error:
+          result.description ||
+          `ارسال پیام در ${platformConfigs[platform].labelFa} انجام نشد.`,
       };
     }
 
     return { success: true };
   } catch {
-    return { error: "ارتباط با تلگرام برقرار نشد. دوباره تلاش کنید." };
+    return {
+      error: `ارتباط با ${platformConfigs[platform].labelFa} برقرار نشد. دوباره تلاش کنید.`,
+    };
   }
 }

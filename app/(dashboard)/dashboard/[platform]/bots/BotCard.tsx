@@ -14,12 +14,24 @@ import {
 import Link from "next/link";
 import { toggleBotStatusAction } from "./[botId]/actions";
 import { deleteBotAction } from "./actions";
+import { PairingCodeButton } from "./PairingCodeButton";
+import {
+  dashboardPath,
+  platformConfigs,
+  type PlatformSlug,
+} from "@/services/bot-platforms/config";
 
 type BotWithCounts = Bot & {
   _count: { connectedChats: number; campaigns: number; posts: number };
 };
 
-export function BotCard({ bot }: { bot: BotWithCounts }) {
+export function BotCard({
+  bot,
+  platform,
+}: {
+  bot: BotWithCounts;
+  platform: PlatformSlug;
+}) {
   return (
     <article className="dashboard-card flex flex-col gap-5 rounded-2xl p-5">
       <div className="flex items-start justify-between gap-3">
@@ -41,7 +53,7 @@ export function BotCard({ bot }: { bot: BotWithCounts }) {
           </p>
         </div>
         <Button asChild variant="brand-dark" size="sm">
-          <Link href={`/dashboard/bots/${bot.id}`}>
+          <Link href={dashboardPath(platform, `bots/${bot.id}`)}>
             مدیریت کامل
             <ArrowLeft />
           </Link>
@@ -60,16 +72,16 @@ export function BotCard({ bot }: { bot: BotWithCounts }) {
 
       <div className="flex flex-wrap gap-2">
         <ConfirmedActionButton
-          action={toggleBotStatusAction.bind(null, bot.id)}
+          action={toggleBotStatusAction.bind(null, platform, bot.id)}
           pendingLabel="در حال تغییر..."
         >
           <Power />
           {bot.isActive ? "غیرفعال‌کردن" : "فعال‌کردن"}
         </ConfirmedActionButton>
         <ConfirmedActionButton
-          action={deleteBotAction.bind(null, bot.id)}
+          action={deleteBotAction.bind(null, platform, bot.id)}
           confirmTitle="حذف دائمی ربات؟"
-          confirmDescription={`سامانه برای حذف وب‌هوک تلگرام تلاش می‌کند و ${bot._count.posts.toLocaleString("fa-IR")} پست، ${bot._count.campaigns.toLocaleString("fa-IR")} کمپین و ${bot._count.connectedChats.toLocaleString("fa-IR")} مقصد برای همیشه از سامانه پاک خواهند شد.`}
+          confirmDescription={`سامانه برای حذف وب‌هوک ${platformConfigs[platform].labelFa} تلاش می‌کند و ${bot._count.posts.toLocaleString("fa-IR")} پست، ${bot._count.campaigns.toLocaleString("fa-IR")} کمپین و ${bot._count.connectedChats.toLocaleString("fa-IR")} مقصد برای همیشه از سامانه پاک خواهند شد.`}
           pendingLabel="در حال حذف..."
           variant="destructive"
         >
@@ -77,6 +89,10 @@ export function BotCard({ bot }: { bot: BotWithCounts }) {
           حذف ربات
         </ConfirmedActionButton>
       </div>
+
+      {platform === "bale" && !bot.ownerPlatformUserId && (
+        <PairingCodeButton platform={platform} botId={bot.id} />
+      )}
     </article>
   );
 }

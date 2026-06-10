@@ -7,6 +7,7 @@ import {
   createCampaignFromDashboardAction,
   sendPostNowAction,
 } from "./actions";
+import type { PlatformSlug } from "@/services/bot-platforms/config";
 
 type Destination = {
   id: string;
@@ -14,9 +15,11 @@ type Destination = {
 };
 
 export function CreateCampaignForm({
+  platform,
   postId,
   destinations,
 }: {
+  platform: PlatformSlug;
   postId: string;
   destinations: Destination[];
 }) {
@@ -40,7 +43,10 @@ export function CreateCampaignForm({
 
     startTransition(async () => {
       try {
-        const result = await createCampaignFromDashboardAction(formData);
+        const result = await createCampaignFromDashboardAction(
+          platform,
+          formData,
+        );
 
         if (result.error) {
           setError(result.error);
@@ -68,7 +74,7 @@ export function CreateCampaignForm({
 
     startTransition(async () => {
       try {
-        const result = await sendPostNowAction(formData);
+        const result = await sendPostNowAction(platform, formData);
 
         if (result.error) {
           setError(result.error);

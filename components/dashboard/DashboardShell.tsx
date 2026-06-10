@@ -8,34 +8,30 @@ import {
   Menu,
   X,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import {
+  dashboardPath,
+  isPlatformSlug,
+  platformConfigs,
+  type PlatformSlug,
+} from "@/services/bot-platforms/config";
 
 const navigation = [
-  {
-    href: "/dashboard",
-    label: "داشبورد",
-    icon: LayoutDashboard,
-  },
-  {
-    href: "/dashboard/bots",
-    label: "مدیریت ربات‌ها",
-    icon: Bot,
-  },
-  {
-    href: "/dashboard/campaigns",
-    label: "کمپین‌ها",
-    icon: CalendarClock,
-  },
+  { suffix: "", label: "داشبورد", icon: LayoutDashboard },
+  { suffix: "bots", label: "مدیریت ربات‌ها", icon: Bot },
+  { suffix: "campaigns", label: "کمپین‌ها", icon: CalendarClock },
 ] as const;
 
 export function DashboardShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const platform = getPlatformFromPath(pathname);
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -56,8 +52,12 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   return (
     <div className="dashboard-shell flex h-svh overflow-hidden bg-slate-50">
       <aside className="hidden min-h-0 w-72 shrink-0 border-l border-slate-200/80 bg-white md:flex md:flex-col">
-        <DashboardBrand />
-        <DashboardNavigation pathname={pathname} />
+        <DashboardBrand platform={platform} />
+        <PlatformSwitcher pathname={pathname} platform={platform} />
+        <DashboardNavigation
+          pathname={pathname}
+          platform={platform}
+        />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -77,8 +77,8 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             </Button>
             <div className="md:hidden">
               <p className="text-sm font-black text-slate-950">BotWizard</p>
-              <p className="text-[11px] font-bold text-slate-700">
-                پنل مدیریت
+              <p className="text-[11px] font-bold text-slate-500">
+                مدیریت {platformConfigs[platform].labelFa}
               </p>
             </div>
           </div>
@@ -129,7 +129,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           )}
         >
           <div className="relative">
-            <DashboardBrand />
+            <DashboardBrand platform={platform} />
             <Button
               type="button"
               variant="ghost"
@@ -141,8 +141,10 @@ export function DashboardShell({ children }: { children: ReactNode }) {
               <X className="size-5" />
             </Button>
           </div>
+          <PlatformSwitcher pathname={pathname} platform={platform} />
           <DashboardNavigation
             pathname={pathname}
+            platform={platform}
             onNavigate={() => setMobileOpen(false)}
           />
         </aside>
@@ -151,10 +153,63 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   );
 }
 
-function DashboardBrand() {
+function getPlatformFromPath(pathname: string): PlatformSlug {
+  const segment = pathname.split("/")[2];
+  return segment && isPlatformSlug(segment) ? segment : "telegram";
+}
+
+function platformTarget(pathname: string, target: PlatformSlug): string {
+  const segments = pathname.split("/").filter(Boolean);
+  const section = segments[2];
+  if (section === "bots" || section === "campaigns") {
+    return dashboardPath(target, section);
+  }
+  return dashboardPath(target);
+}
+
+function PlatformSwitcher({
+  pathname,
+  platform,
+}: {
+  pathname: string;
+  platform: PlatformSlug;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2 border-b border-slate-100 p-4">
+      {(["telegram", "bale"] as const).map((item) => {
+        const config = platformConfigs[item];
+        const active = item === platform;
+        return (
+          <Link
+            key={item}
+            href={platformTarget(pathname, item)}
+            aria-current={active ? "page" : undefined}
+            className={cn(
+              "flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-black transition-colors",
+              active
+                ? "border-sky-200 bg-sky-50 text-slate-900"
+                : "border-slate-200 bg-white text-slate-400 hover:bg-slate-50 hover:text-slate-700",
+            )}
+          >
+            <Image
+              src={config.logo}
+              alt=""
+              width={22}
+              height={22}
+              className={cn("size-5 object-contain", !active && "grayscale")}
+            />
+            {config.labelFa}
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
+function DashboardBrand({ platform }: { platform: PlatformSlug }) {
   return (
     <Link
-      href="/dashboard"
+      href={dashboardPath(platform)}
       className="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200/80 px-5 transition-colors hover:bg-slate-50"
     >
       <span className="flex size-11 items-center justify-center rounded-2xl bg-brand-telegram text-white shadow-lg shadow-brand-telegram/20">
@@ -174,9 +229,11 @@ function DashboardBrand() {
 
 function DashboardNavigation({
   pathname,
+  platform,
   onNavigate,
 }: {
   pathname: string;
+  platform: PlatformSlug;
   onNavigate?: () => void;
 }) {
   return (
@@ -184,14 +241,15 @@ function DashboardNavigation({
       <p className="px-3 pb-2 pt-1 text-[11px] font-black tracking-wide text-slate-400">
         منوی اصلی
       </p>
-      {navigation.map(({ href, label, icon: Icon }) => {
+      {navigation.map(({ suffix, label, icon: Icon }) => {
+        const href = dashboardPath(platform, suffix);
         const active =
-          href === "/dashboard"
+          suffix === ""
             ? pathname === href
             : pathname === href || pathname.startsWith(`${href}/`);
         return (
           <Link
-            key={href}
+            key={suffix || "dashboard"}
             href={href}
             aria-current={active ? "page" : undefined}
             onClick={onNavigate}

@@ -1,6 +1,6 @@
 # BotWizard Project Context
 
-Last reviewed: 2026-06-08
+Last reviewed: 2026-06-10
 
 This file is the onboarding reference for coding agents and contributors. It
 describes the repository as it currently exists, including incomplete features
@@ -9,17 +9,17 @@ update it when architecture or runtime behavior changes.
 
 ## Product Summary
 
-BotWizard is a Persian, RTL Telegram automation application. A user connects
-one or more Telegram bots, adds those bots to Telegram groups or channels,
+BotWizard is a Persian, RTL Telegram and Bale automation application. A user
+connects bots and adds them to platform groups or channels,
 captures posts through private bot messages, and creates immediate or recurring
 delivery campaigns.
 
 There are two user interfaces:
 
 1. A Next.js web dashboard for login, bot management, posts, and campaigns.
-2. Telegram conversations:
-   - The main/platform bot registers users and connects user-owned bot tokens.
-   - Each connected user bot manages drafts, destination chats, and campaigns.
+2. Bot conversations:
+   - The Telegram main bot registers users and connects Telegram bot tokens.
+   - Connected Telegram and Bale bots manage drafts, destinations, and campaigns.
 
 Important current-state distinction: campaign records can be created and
 managed, but this repository contains no scheduler, queue, cron route, or
@@ -36,7 +36,7 @@ not operational from this codebase alone.
 - shadcn/ui with Radix components
 - `jose` for signed JWT session cookies
 - `nuqs` for login-page query state
-- Telegram Bot HTTP API through native `fetch`
+- Telegram and Bale Bot HTTP APIs through native `fetch`
 - `undici` global proxy support from `instrumentation.ts`
 
 The package name is `BotWizard`; the repository/directory name is `autopromo`.
@@ -76,17 +76,18 @@ app/
   actions/auth.ts                    OTP verification Server Action
   (dashboard)/
     layout.tsx                       Session-gated dashboard shell
-    dashboard/page.tsx               User summary counts
-    dashboard/bots/                  Bot list/add/delete UI and actions
-    dashboard/bots/[botId]/          Bot-scoped campaigns, posts, and chats
-    dashboard/posts/                 Legacy redirect to campaigns
-    dashboard/campaigns/             Campaign list and campaign detail UI
+    dashboard/[platform]/page.tsx    Platform-scoped summary counts
+    dashboard/[platform]/bots/       Platform bot management
+    dashboard/[platform]/campaigns/  Platform campaign management
+    dashboard/[platform]/posts/      Redirect to platform campaigns
   api/
     auth/request-otp/route.ts        Generates and sends OTP
     auth/telegram/route.ts           Telegram Login Widget authentication
     telegram/webhook/route.ts        Main bot webhook
     telegram/webhook/[token]/route.ts
-                                       User-bot webhook dispatcher
+                                       Legacy Telegram dispatcher
+    bots/webhook/[platform]/[token]/route.ts
+                                       Platform-neutral bot dispatcher
 
 lib/
   prisma/index.ts                    Prisma singleton
@@ -101,6 +102,14 @@ lib/
       group.ts                       Connected chat registration
       chats.ts                       Connected-chat menu
       campaigns.ts                   Campaign menu
+
+services/
+  bot-platforms/
+    config.ts                        Platform metadata and route helpers
+    provider.ts                      Telegram/Bale HTTP API adapters
+    context.ts                       Per-webhook provider context
+    dispatch-update.ts               Shared owner-authorized dispatcher
+    pairing.ts                       Hashed Bale owner pairing codes
 
 prisma/
   schema.prisma                      Canonical data model
@@ -123,14 +132,16 @@ instrumentation.ts                   Optional process-wide outbound proxy
 - `/` - Product landing page with a sticky full-screen framed hero, login CTA,
   and scroll-revealed content sections.
 - `/login` - Phone-based OTP flow.
-- `/dashboard` - Counts bots, active campaigns, and posts for the session user.
-- `/dashboard/bots` - Adds, lists, and deletes bots.
-- `/dashboard/bots/:botId` - Full bot workspace for status, campaigns, history,
+- `/dashboard` - Redirects to `/dashboard/telegram`.
+- `/dashboard/:platform` - Platform-scoped summary for `telegram` or `bale`.
+- `/dashboard/:platform/bots` - Adds, lists, and deletes platform bots.
+- `/dashboard/:platform/bots/:botId` - Full bot workspace for status, campaigns, history,
   posts, and connected destinations.
-- `/dashboard/posts` - Legacy route that redirects to `/dashboard/campaigns`.
-- `/dashboard/campaigns` - Aggregate campaign list with bot links and controls.
-- `/dashboard/campaigns/:campaignId` - Campaign details, its associated post,
+- `/dashboard/:platform/posts` - Redirects to that platform's campaigns.
+- `/dashboard/:platform/campaigns` - Platform campaign list and controls.
+- `/dashboard/:platform/campaigns/:campaignId` - Campaign details and associated post,
   recent history, immediate send, and new scheduling actions.
+- Legacy unscoped dashboard routes redirect to the Telegram segment.
 
 The login footer links to `/policy`, but no policy route exists.
 
@@ -142,10 +153,11 @@ The login footer links to `/policy`, but no policy route exists.
 - `GET /api/auth/telegram-link`
 - `POST /api/telegram/webhook`
 - `POST /api/telegram/webhook/:token`
+- `POST /api/bots/webhook/:platform/:token`
 
-Both main-bot webhook shapes exist. The registration flow for user bots points
-to `/api/telegram/webhook/:token`. The root webhook is intended for the main
-platform bot.
+The root Telegram webhook is for the main login bot. New user-bot registrations
+point to the platform-neutral route. The dynamic Telegram route remains for
+previously registered Telegram webhooks.
 
 ## Authentication and Session Flow
 
@@ -193,7 +205,16 @@ Configure the production origin and login URL in BotFather under:
 `getSession()` verifies only the JWT signature/expiry. It does not confirm that
 the user still exists or that the session has been revoked.
 
-## Telegram Runtime Architecture
+## Bot Platform Runtime Architecture
+
+`Bot.platform` is the ownership boundary for dashboard queries and mutations.
+Supported values are `TELEGRAM` and `BALE`. The dashboard switcher changes the
+route segment, colors the active logo, and renders the inactive logo grayscale.
+
+Both platforms implement one provider interface. Telegram calls
+`https://api.telegram.org`; Bale calls `https://tapi.bale.ai`. Existing
+conversation handlers run inside a request-local platform context so the same
+state machine uses the correct provider.
 
 ### Main/platform bot
 
@@ -208,7 +229,7 @@ Responsibilities:
 - Show bot-registration and bot-management menus.
 - Detect raw BotFather tokens or `/addbot <token>`.
 - Validate a user bot with `getMe`.
-- Set the user bot webhook.
+- Set the Telegram user bot's platform-neutral webhook.
 - Upsert the `Bot` record.
 - Toggle bot activation and display active campaign counts.
 
@@ -216,26 +237,31 @@ The main bot token is `TELEGRAM_LOGIN_BOT_TOKEN`.
 
 ### User-owned bots
 
-All user bots share the dynamic webhook route. The token in the URL is used to
-look up the `Bot` record.
+New user bots share `/api/bots/webhook/:platform/:token`. Platform and token
+together identify the `Bot` record.
 
 Before dispatching an update, the route:
 
 1. Rejects unknown tokens.
 2. Ignores inactive bots.
-3. Extracts the Telegram sender.
-4. Ignores updates unless the sender equals the bot owner's `telegramId`.
+3. Extracts the platform sender.
+4. Ignores updates unless the sender equals `Bot.ownerPlatformUserId`.
 
-This owner-only check also applies to `my_chat_member` updates. That behavior
-may prevent chat registration when Telegram reports a different actor or when
-channel/group update shape differs.
+Telegram group joins use `my_chat_member`; Bale group joins use
+`message.new_chat_members`. Both are normalized into `ConnectedChat` records
+and remain owner-authorized.
+
+Telegram bots inherit the linked Telegram ID as their platform owner. Bale IDs
+are separate, so adding a Bale bot creates a hashed, 30-minute one-time code.
+The owner sends `/connect CODE` privately to bind their Bale ID. The dashboard
+can regenerate an expired code.
 
 Update dispatch:
 
 - `/start` sends the user-bot management menu.
 - `/campaigns` renders campaigns.
 - Other private messages are treated as draft posts.
-- `my_chat_member` upserts `ConnectedChat`.
+- Platform-specific membership updates upsert `ConnectedChat`.
 - Callback queries enter the large inline-button workflow in `callback.ts`.
 
 ### Draft and immediate-send flow
@@ -287,13 +313,16 @@ Unique keys:
 
 ### `Bot`
 
-A user-owned Telegram bot.
+A user-owned Telegram or Bale bot.
 
 Key fields:
 
 - Owner relation
-- Raw Telegram bot token, stored in plaintext and unique
+- Platform enum
+- Raw bot token, stored in plaintext and unique within its platform
 - Username
+- Platform-specific owner user ID
+- Optional hashed and expiring owner-pairing code
 - Active flag
 - Posts, campaigns, and connected chats
 
@@ -303,8 +332,8 @@ Deleting a bot cascades to its related records.
 
 Saved content associated with one bot.
 
-It can hold text, media URL/type, and Telegram source chat/message IDs.
-Telegram-created posts currently rely primarily on source IDs.
+It can hold text, media URL/type, and platform source chat/message IDs.
+Bot-created posts currently rely primarily on source IDs.
 
 ### `ConnectedChat`
 
@@ -324,6 +353,7 @@ this table.
 ### Enums
 
 - `Role`: `USER`, `ADMIN`
+- `BotPlatform`: `TELEGRAM`, `BALE`
 - `MediaType`: `NONE`, `IMAGE`, `VIDEO`
 - `ScheduleType`: `INTERVAL`, `SPECIFIC_TIMES`
 - `SendStatus`: `SUCCESS`, `FAILED`
@@ -407,7 +437,11 @@ There is no test script or test suite.
   content uses a fixed low-contrast blue cloud background. Dashboard navigation,
   buttons, icons, card borders, and shadows share one restrained Telegram-blue
   accent; secondary colors are reserved for semantic statuses and warnings.
-- The bot token form and BotFather guide are hidden inside the client-side
+- The header/sidebar switcher displays both platform logos and only preserves
+  list-level sections when changing platforms, so resource IDs never cross
+  platform boundaries.
+- The bot token form and platform-specific BotFather guide are hidden inside
+  the client-side
   `AddBotPanel` until the user selects "افزودن ربات جدید". Campaign cards link
   to a dedicated detail route; the data model associates exactly one `Post`
   with each `Campaign`.
@@ -424,7 +458,7 @@ There is no test script or test suite.
   it imports global CSS and defines its own `<html>` and `<body>`.
 - `app/(dashboard)/error.tsx` keeps dashboard failures inside the authenticated
   shell and offers retry plus safe navigation.
-- `app/(dashboard)/dashboard/bots/[botId]/not-found.tsx` handles missing,
+- `app/(dashboard)/dashboard/[platform]/bots/[botId]/not-found.tsx` handles missing,
   deleted, or unauthorized bot IDs without revealing which case occurred.
 - Error boundaries use Next.js 16.2's `unstable_retry()` prop. Expected
   validation and mutation failures should still be returned as visible action
@@ -439,12 +473,13 @@ There is no test script or test suite.
 Treat these as known issues, not established design choices:
 
 1. Scheduled execution is absent.
-2. Main-bot callback operations fetch bots by ID without verifying ownership by
-   the callback sender.
+2. The Telegram main bot remains the only account registration conversation;
+   Bale ownership is bot-scoped through one-time pairing rather than a Bale
+   account login flow.
 3. User bot tokens are embedded directly in webhook URLs and stored plaintext.
-   No Telegram webhook secret-token header is configured or verified.
-4. `callTelegramAPI` catches transport errors but does not throw on Telegram API
-   responses with `ok: false`; callers must check the response.
+   No provider webhook secret header is configured or verified.
+4. Provider calls normalize failed responses to `ok: false`; conversation
+   handlers still must inspect responses where delivery success matters.
 5. OTP and one-time login protection is application-level and not a substitute
    for infrastructure-level IP/device abuse controls.
 6. Telegram OIDC account conflicts require manual support resolution rather

@@ -37,3 +37,43 @@ export async function handleGroupAddition(my_chat_member: any, bot: Bot) {
     }, bot.token);
   }
 }
+
+export async function handleNewChatMembers(message: any, bot: Bot) {
+  const members = message.new_chat_members ?? [];
+  const addedCurrentBot = members.some(
+    (member: any) =>
+      member.username?.toLowerCase() === bot.username.toLowerCase(),
+  );
+
+  if (!addedCurrentBot) return;
+
+  const chatId = message.chat.id.toString();
+  const chatTitle = message.chat.title || "بدون نام";
+
+  await prisma.connectedChat.upsert({
+    where: {
+      botId_chatId: {
+        botId: bot.id,
+        chatId,
+      },
+    },
+    update: { chatTitle },
+    create: {
+      botId: bot.id,
+      chatId,
+      chatTitle,
+    },
+  });
+
+  if (message.from?.id) {
+    await callTelegramAPI(
+      "sendMessage",
+      {
+        chat_id: message.from.id,
+        text: `✅ ربات به **${chatTitle}** متصل شد.\nحالا می‌توانید پست‌ها را زمان‌بندی کنید.`,
+        parse_mode: "Markdown",
+      },
+      bot.token,
+    );
+  }
+}

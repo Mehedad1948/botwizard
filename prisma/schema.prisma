@@ -41,17 +41,24 @@ model LoginToken {
 }
 
 model Bot {
-  id             String          @id @default(cuid())
-  userId         String
-  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  token          String          @unique
-  username       String
-  isActive       Boolean         @default(true)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  posts          Post[]
-  campaigns      Campaign[]
-  connectedChats ConnectedChat[]
+  id                      String          @id @default(cuid())
+  userId                  String
+  user                    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform                BotPlatform     @default(TELEGRAM)
+  token                   String
+  username                String
+  ownerPlatformUserId     String?
+  connectionCodeHash      String?
+  connectionCodeExpiresAt DateTime?
+  isActive                Boolean         @default(true)
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+  posts                   Post[]
+  campaigns               Campaign[]
+  connectedChats          ConnectedChat[]
+
+  @@unique([platform, token])
+  @@index([userId, platform])
 }
 
 model Post {
@@ -115,6 +122,11 @@ model ConnectedChat {
 enum Role {
   USER
   ADMIN
+}
+
+enum BotPlatform {
+  TELEGRAM
+  BALE
 }
 
 enum MediaType {
