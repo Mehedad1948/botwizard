@@ -48,7 +48,7 @@ export default async function BotsPage({
       <div className="space-y-4">
         <h3 className="text-lg font-semibold">ربات‌های متصل شده</h3>
         {bots.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-sky-200 bg-sky-50/40 p-8 text-center text-muted-foreground">
+          <div className="dashboard-accent-surface rounded-2xl border border-dashed p-8 text-center">
             هیچ رباتی هنوز اضافه نشده است.
           </div>
         ) : (

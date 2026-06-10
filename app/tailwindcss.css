@@ -189,17 +189,17 @@
     background:
       radial-gradient(
         circle at 12% 18%,
-        rgb(186 230 253 / 0.2),
+        rgb(var(--dashboard-cloud-rgb) / 0.16),
         transparent 28rem
       ),
       radial-gradient(
         circle at 84% 34%,
-        rgb(224 242 254 / 0.34),
+        rgb(var(--dashboard-cloud-rgb) / 0.11),
         transparent 30rem
       ),
       radial-gradient(
         circle at 52% 88%,
-        rgb(219 234 254 / 0.24),
+        rgb(var(--dashboard-cloud-rgb) / 0.09),
         transparent 34rem
       ),
       #f8fafc;
@@ -209,20 +209,48 @@
   .dashboard-shell {
     --dashboard-accent: var(--brand-telegram);
     --dashboard-accent-hover: #168acd;
+    --dashboard-accent-ink: #075985;
     --dashboard-accent-soft: rgb(41 169 235 / 0.1);
+    --dashboard-accent-soft-strong: rgb(41 169 235 / 0.18);
     --dashboard-accent-border: rgb(41 169 235 / 0.24);
-    --dashboard-accent-shadow: rgb(41 169 235 / 0.08);
+    --dashboard-accent-shadow: rgb(41 169 235 / 0.12);
+    --dashboard-cloud-rgb: 41 169 235;
+    --primary: var(--dashboard-accent);
+    --primary-foreground: #fff;
+    --ring: var(--dashboard-accent);
+    --sidebar-primary: var(--dashboard-accent);
+    --sidebar-ring: var(--dashboard-accent);
+  }
+
+  .dashboard-shell[data-platform="bale"] {
+    --dashboard-accent: var(--brand-bale);
+    --dashboard-accent-hover: #009b7d;
+    --dashboard-accent-ink: #047857;
+    --dashboard-accent-soft: rgb(0 184 148 / 0.1);
+    --dashboard-accent-soft-strong: rgb(0 184 148 / 0.18);
+    --dashboard-accent-border: rgb(0 184 148 / 0.26);
+    --dashboard-accent-shadow: rgb(0 184 148 / 0.12);
+    --dashboard-cloud-rgb: 0 184 148;
   }
 
   .dashboard-shell [data-slot="button"][data-variant="default"],
+  .dashboard-shell [data-slot="button"][data-variant="brand"],
   .dashboard-shell [data-slot="button"][data-variant="brand-dark"] {
     background: var(--dashboard-accent);
     box-shadow: 0 0.45rem 1.2rem var(--dashboard-accent-shadow);
   }
 
   .dashboard-shell [data-slot="button"][data-variant="default"]:hover,
+  .dashboard-shell [data-slot="button"][data-variant="brand"]:hover,
   .dashboard-shell [data-slot="button"][data-variant="brand-dark"]:hover {
     background: var(--dashboard-accent-hover);
+  }
+
+  .dashboard-shell [data-slot="button"][data-variant="default"]:focus-visible,
+  .dashboard-shell [data-slot="button"][data-variant="brand"]:focus-visible,
+  .dashboard-shell [data-slot="button"][data-variant="brand-dark"]:focus-visible,
+  .dashboard-shell [data-slot="button"][data-variant="brand-outline"]:focus-visible {
+    --tw-ring-color: var(--dashboard-accent-border);
   }
 
   .dashboard-shell [data-slot="button"][data-variant="outline"]:hover,
@@ -230,6 +258,64 @@
     border-color: var(--dashboard-accent-border);
     background: var(--dashboard-accent-soft);
     color: var(--dashboard-accent-hover);
+  }
+
+  .dashboard-accent-surface {
+    border-color: var(--dashboard-accent-border);
+    background: var(--dashboard-accent-soft);
+    color: var(--dashboard-accent-ink);
+  }
+
+  .dashboard-accent-surface-strong {
+    background: var(--dashboard-accent-soft-strong);
+    color: var(--dashboard-accent-ink);
+  }
+
+  .dashboard-accent-text {
+    color: var(--dashboard-accent-ink);
+  }
+
+  .dashboard-accent-link {
+    color: var(--dashboard-accent-ink);
+  }
+
+  .dashboard-accent-link:hover {
+    color: var(--dashboard-accent-hover);
+  }
+
+  .dashboard-accent-icon {
+    background: var(--dashboard-accent);
+    color: white;
+    box-shadow: 0 0.55rem 1.35rem var(--dashboard-accent-shadow);
+  }
+
+  .dashboard-navigation-link:hover {
+    background: var(--dashboard-accent-soft);
+    color: var(--dashboard-accent-ink);
+  }
+
+  .dashboard-navigation-link[aria-current="page"] {
+    background: var(--dashboard-accent-soft);
+    color: var(--dashboard-accent-ink);
+    box-shadow: 0 0.35rem 1rem var(--dashboard-accent-shadow);
+    --tw-ring-color: var(--dashboard-accent-border);
+  }
+
+  .dashboard-navigation-icon {
+    background: #f1f5f9;
+    color: #64748b;
+  }
+
+  .dashboard-navigation-link:hover .dashboard-navigation-icon,
+  .dashboard-navigation-link[aria-current="page"] .dashboard-navigation-icon {
+    background: var(--dashboard-accent-soft-strong);
+    color: var(--dashboard-accent-ink);
+  }
+
+  .dashboard-platform-active {
+    border-color: var(--dashboard-accent-border);
+    background: var(--dashboard-accent-soft);
+    color: var(--dashboard-accent-ink);
   }
 
   .dashboard-card {
