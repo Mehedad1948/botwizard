@@ -71,7 +71,7 @@ Observed Next.js 16 conventions already used by the project:
 ```text
 app/
   layout.tsx                         Root RTL layout and NuqsAdapter
-  page.tsx                           Responsive product landing hero
+  page.tsx                           Landing composition and content sections
   login/page.tsx                     Phone/OTP login UI
   actions/auth.ts                    OTP verification Server Action
   (dashboard)/
@@ -108,6 +108,8 @@ prisma/
 
 components/
   auth/TelegramLoginWidget.tsx       Alternative Telegram login client
+  landing/LandingHero.tsx            Full-screen sticky landing hero
+  landing/PageSection.tsx            Compound server-rendered content section
   ui/                                Generated shadcn components
 
 instrumentation.ts                   Optional process-wide outbound proxy
@@ -117,7 +119,8 @@ instrumentation.ts                   Optional process-wide outbound proxy
 
 ### Pages
 
-- `/` - Product landing page with a single-screen framed hero and login CTA.
+- `/` - Product landing page with a sticky full-screen framed hero, login CTA,
+  and scroll-revealed content sections.
 - `/login` - Phone-based OTP flow.
 - `/dashboard` - Counts bots, active campaigns, and posts for the session user.
 - `/dashboard/bots` - Adds, lists, and deletes bots.
@@ -381,6 +384,12 @@ There is no test script or test suite.
   vertically for the lower edge; the white card itself remains rectangular.
   Outer landing frame spacing is controlled by viewport padding on the parent
   rather than calculated heights.
+- The hero markup is isolated in `components/landing/LandingHero.tsx` and stays
+  sticky while the white content surface scrolls over it.
+- Subsequent landing content uses the compound Server Component API
+  `PageSection`, `PageSection.Image`, and `PageSection.Content`. Its reveal
+  effects use CSS view timelines, fall back to a fully visible static layout,
+  and disable motion for `prefers-reduced-motion`.
 - shadcn aliases use `@/components`, `@/components/ui`, and `@/lib`.
 - UI components are a mix of Server Components and small Client Components.
 - Most user-facing copy is Persian.

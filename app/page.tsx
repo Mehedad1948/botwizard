@@ -1,166 +1,108 @@
 import {
-  ArrowLeft,
-  Bot,
   CalendarClock,
-  CircleCheck,
+  LayoutDashboard,
   MessagesSquare,
+  Send,
 } from "lucide-react";
-import { LandingNotch } from "@/components/landing/LandingNotch";
-import { RobotHeroIllustration } from "@/components/landing/RobotHeroIllustration";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
 
-const highlights = [
-  { icon: CalendarClock, label: "زمان‌بندی دقیق" },
-  { icon: MessagesSquare, label: "مدیریت چند ربات" },
-  { icon: CircleCheck, label: "ارسال خودکار" },
+import { LandingHero } from "@/components/landing/LandingHero";
+import { PageSection } from "@/components/landing/PageSection";
+
+const placeholderSections = [
+  {
+    eyebrow: "مدیریت یکپارچه",
+    title: "همه‌چیز در یک داشبورد ساده",
+    description:
+      "این بخش جای محتوای اصلی شماست. می‌توانید هر Server Component، داده واکشی‌شده یا رابط سفارشی را داخل PageSection.Content قرار دهید.",
+    icon: LayoutDashboard,
+    accent: "from-sky-400 to-cyan-300",
+    card: "bg-sky-50",
+  },
+  {
+    eyebrow: "زمان‌بندی هوشمند",
+    title: "انتشار دقیق، بدون کار تکراری",
+    description:
+      "برای معرفی قابلیت دوم، تصویر یا دموی محصول را در بخش تصویر و توضیحات، دکمه‌ها یا لیست مزایا را در بخش محتوا قرار دهید.",
+    icon: CalendarClock,
+    accent: "from-emerald-400 to-teal-300",
+    card: "bg-emerald-50",
+    reverse: true,
+  },
+  {
+    eyebrow: "ارتباط گسترده",
+    title: "یک پیام، چند مقصد",
+    description:
+      "ساختار این سکشن‌ها کاملاً قابل جایگزینی است و انیمیشن ورود بدون نیاز به تبدیل محتوای داخلی به Client Component اجرا می‌شود.",
+    icon: MessagesSquare,
+    accent: "from-violet-400 to-fuchsia-300",
+    card: "bg-violet-50",
+  },
 ];
 
 export default function Home() {
   return (
-    <main className="landing-frame-background relative flex h-svh items-center justify-center overflow-hidden p-3 py-8 sm:py-10 sm:px-5 lg:py-20">
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 opacity-30 [background-image:radial-gradient(circle_at_center,white_1.5px,transparent_1.5px)] [background-size:28px_28px]"
-      />
-      <div
-        aria-hidden="true"
-        className="absolute -left-20 top-6 size-64 rounded-full bg-white/25 blur-3xl"
-      />
-      <div
-        aria-hidden="true"
-        className="absolute -right-16 bottom-0 size-72 rounded-full bg-brand-lilac/40 blur-3xl"
-      />
+    <main className="relative bg-slate-950">
+      <LandingHero />
 
-
-      <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-visible bg-white">
-        <LandingNotch className="absolute bottom-full translate-y-0.5 min-h-5" />
-        <LandingNotch className="absolute top-full -scale-y-100 -translate-y-0.5" />
-
-        <header className="relative z-10 flex shrink-0 items-center justify-between px-6 py-3 sm:px-10 sm:py-4 lg:px-14">
-          <Link
-            href="/"
-            className="flex items-center gap-2.5 text-slate-950"
-            aria-label="Bot Wizard"
-          >
-            <span className="flex size-10 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-lg shadow-brand-pink/20">
-              <Bot className="size-5" />
-            </span>
-            <span className="text-lg font-black tracking-tight">
-              Bot<span className="text-brand-pink">Wizard</span>
-            </span>
-          </Link>
-
-          <nav className="flex items-center gap-2 sm:gap-3">
-            <Button
-              asChild
-              variant="brand-ghost"
-              size="brand-sm"
-              className="hidden sm:inline-flex"
-            >
-              <Link href="/login">ورود</Link>
-            </Button>
-            <Button
-              asChild
-              variant="brand-dark"
-              size="brand-sm"
-              className="group px-4 text-xs sm:px-5 sm:text-sm"
-            >
-              <Link href="/login">
-                شروع رایگان
-                <ArrowLeft className="size-4 transition-transform group-hover:-translate-x-1" />
-              </Link>
-            </Button>
-          </nav>
-        </header>
-
-        <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] lg:grid-cols-2 lg:grid-rows-1">
-          <div className="relative z-10  flex items-start px-6 pt-2 sm:px-12 sm:pt-3 lg:order-1 lg:items-center lg:px-14 lg:py-8 xl:px-20">
-            <div className="mx-auto w-full max-w-xl lg:mx-0">
-
-              <h1 className="text-[clamp(2.15rem,5vw,4.6rem)] font-black leading-[1.08] tracking-[-0.045em] text-slate-950">
-                <span className="block">ساخت ربات</span>
-                <span className="mt-2 flex items-center gap-[0.14em] whitespace-nowrap">
-                  <span className="landing-telegram-text">تلگرام</span>
-                  <span className="text-[0.72em] text-slate-400">و</span>
-                  <span className="landing-bale-text">بله</span>
-                </span>
-              </h1>
-
-              <p className="mt-4 max-w-lg text-sm leading-6 text-slate-500 sm:mt-6 sm:text-base sm:leading-8 lg:text-lg">
-                ربات‌ها، محتوا و کمپین‌هایتان در تلگرام و بله را از یک داشبورد ساده
-                مدیریت کنید؛ شما ایده بدهید، BotWizard درست سر وقت منتشر
-                می‌کند.
-              </p>
-
-              <div className="mt-5   flex gap-3 sm:mt-7 sm:flex-row">
-                <Button
-                  asChild
-                  variant="brand"
-                  size="brand"
-                  className="group flex-1 sm:flex-none"
-                >
-                  <Link href="/login">
-                    همین حالا شروع کن
-                    <ArrowLeft className="size-5 transition-transform group-hover:-translate-x-1" />
-                  </Link>
-                </Button>
-                {/* <Button
-                  asChild
-                  variant="glass"
-                  size="brand"
-                  className="hidden sm:inline-flex"
-                >
-                  <a href="#features">
-                    <span className="flex size-7 items-center justify-center rounded-full bg-brand-cyan text-slate-950">
-                      <Play className="size-3.5 fill-current" />
-                    </span>
-                    چطور کار می‌کند؟
-                  </a>
-                </Button> */}
-              </div>
-
-              <div
-                id="features"
-                className="mt-7 hidden flex-wrap items-center gap-x-5 gap-y-3 lg:flex"
-              >
-                {highlights.map(({ icon: Icon, label }) => (
-                  <span
-                    key={label}
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500"
+      <div className="landing-content-surface relative z-10 bg-white">
+        <div className="mx-auto max-w-7xl px-6 sm:px-10 lg:px-14">
+          {placeholderSections.map(
+            ({
+              eyebrow,
+              title,
+              description,
+              icon: Icon,
+              accent,
+              card,
+              reverse,
+            }) => (
+              <PageSection key={title} reverse={reverse}>
+                <PageSection.Image>
+                  <div
+                    className={`relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-[2rem] ${card} p-8 shadow-[0_30px_80px_rgb(15_23_42/0.12)] sm:rounded-[3rem]`}
                   >
-                    <Icon className="size-4 text-brand-lilac" />
-                    {label}
+                    <div
+                      aria-hidden="true"
+                      className={`absolute -left-[12%] -top-[18%] size-[58%] rounded-full bg-gradient-to-br ${accent} opacity-35 blur-3xl`}
+                    />
+                    <div className="relative w-full max-w-sm rounded-[1.75rem] border border-white/80 bg-white/85 p-5 shadow-xl shadow-slate-900/10 backdrop-blur">
+                      <div className="flex items-center justify-between">
+                        <span className="h-2.5 w-24 rounded-full bg-slate-200" />
+                        <span
+                          className={`flex size-11 items-center justify-center rounded-2xl bg-gradient-to-br ${accent} text-white shadow-lg`}
+                        >
+                          <Icon className="size-5" />
+                        </span>
+                      </div>
+                      <div className="mt-7 grid gap-3">
+                        <span className="h-12 rounded-2xl bg-slate-100" />
+                        <span className="h-12 rounded-2xl bg-slate-100/80" />
+                        <span className="h-12 rounded-2xl bg-slate-100/60" />
+                      </div>
+                    </div>
+                  </div>
+                </PageSection.Image>
+
+                <PageSection.Content>
+                  <span className="text-sm font-black text-brand-pink">
+                    {eyebrow}
                   </span>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="relative z-0 flex min-h-0 items-center justify-center overflow-visible px-5 pb-1 pt-2 sm:px-10 sm:pb-3 lg:order-2 lg:px-10 lg:py-8 xl:px-16">
-            <div
-              aria-hidden="true"
-              className="absolute left-1/2 top-1/2 h-[76%] w-[72%] -translate-x-1/2 -translate-y-1/2 rotate-[-5deg] rounded-[2.5rem] bg-brand-cyan/20 sm:h-[72%] sm:w-[68%] lg:w-[76%] lg:rounded-[3.5rem]"
-            />
-            <div
-              aria-hidden="true"
-              className="absolute left-[14%] top-[15%] hidden size-20 rounded-full bg-brand-pink/15 blur-xl sm:block"
-            />
-            <div
-              aria-hidden="true"
-              className="absolute bottom-[15%] right-[12%] hidden size-24 rounded-full bg-brand-lilac/20 blur-xl sm:block "
-            />
-            <RobotHeroIllustration />
-          </div>
-        </div>
-
-        <div className="pointer-events-none absolute bottom-5 left-6 hidden items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-300 sm:flex lg:left-12">
-          <span className="h-px w-8 bg-slate-200" />
-          Telegram &amp; Bale Automation
+                  <h2 className="mt-4 text-3xl font-black leading-tight tracking-[-0.035em] text-slate-950 sm:text-4xl lg:text-5xl">
+                    {title}
+                  </h2>
+                  <p className="mt-5 max-w-xl text-base leading-8 text-slate-500 sm:text-lg">
+                    {description}
+                  </p>
+                  <div className="mt-7 inline-flex items-center gap-2 text-sm font-black text-slate-900">
+                    <Send className="size-4 text-brand-cyan" />
+                    محل دکمه یا فراخوان اقدام
+                  </div>
+                </PageSection.Content>
+              </PageSection>
+            ),
+          )}
         </div>
       </div>
-
-
     </main>
   );
 }

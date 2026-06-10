@@ -185,6 +185,84 @@
     );
   }
 
+  .landing-content-surface {
+    min-height: 100svh;
+    overflow: clip;
+    border-radius: 2rem 2rem 0 0;
+    box-shadow: 0 -2rem 5rem rgb(15 23 42 / 0.2);
+  }
+
+  .landing-page-section {
+    display: grid;
+    min-height: 88svh;
+    align-items: center;
+    gap: 3rem;
+    padding-block: clamp(5rem, 11vw, 9rem);
+  }
+
+  .landing-page-section-image,
+  .landing-page-section-content {
+    min-width: 0;
+  }
+
+  .landing-page-section-content {
+    align-self: center;
+  }
+
+  @media (min-width: 64rem) {
+    .landing-content-surface {
+      border-radius: 3.5rem 3.5rem 0 0;
+    }
+
+    .landing-page-section {
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+      gap: clamp(4rem, 8vw, 8rem);
+    }
+
+    .landing-page-section-image {
+      grid-column: 1;
+    }
+
+    .landing-page-section-content {
+      grid-column: 2;
+    }
+
+    .landing-page-section-reverse .landing-page-section-image {
+      grid-column: 2;
+    }
+
+    .landing-page-section-reverse .landing-page-section-content {
+      grid-column: 1;
+      grid-row: 1;
+    }
+  }
+
+  @supports (animation-timeline: view()) {
+    .landing-page-section-image,
+    .landing-page-section-content {
+      animation-fill-mode: both;
+      animation-timeline: view(block);
+      animation-range: entry 6% cover 38%;
+      animation-timing-function: linear;
+    }
+
+    .landing-page-section-image {
+      animation-name: landing-section-image-enter;
+    }
+
+    .landing-page-section-content {
+      animation-name: landing-section-content-enter;
+    }
+
+    .landing-page-section-reverse .landing-page-section-image {
+      animation-name: landing-section-image-enter-reverse;
+    }
+
+    .landing-page-section-reverse .landing-page-section-content {
+      animation-name: landing-section-content-enter-reverse;
+    }
+  }
+
   .landing-platform-orbit {
     filter: drop-shadow(0 0.5rem 0.8rem rgb(15 23 42 / 0.18));
     transform-origin: 50% 50%;
@@ -244,12 +322,58 @@
     .landing-robot-group,
     .landing-robot-float,
     .landing-sparkle-float,
-    .landing-platform-orbit {
+    .landing-platform-orbit,
+    .landing-page-section-image,
+    .landing-page-section-content {
       animation: none;
       filter: none;
       transform: none;
       transition: none;
     }
+  }
+}
+
+@keyframes landing-section-image-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(-4rem, 3rem, 0) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes landing-section-content-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(4rem, 2rem, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes landing-section-image-enter-reverse {
+  from {
+    opacity: 0;
+    transform: translate3d(4rem, 3rem, 0) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes landing-section-content-enter-reverse {
+  from {
+    opacity: 0;
+    transform: translate3d(-4rem, 2rem, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
   }
 }
 
