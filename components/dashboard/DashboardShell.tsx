@@ -5,6 +5,7 @@ import {
   Bot,
   CalendarClock,
   ChevronDown,
+  CircleUserRound,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -335,8 +336,12 @@ function ProfileMenu({
         aria-haspopup="menu"
         onClick={onToggle}
       >
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[color:var(--dashboard-accent-soft)] text-[color:var(--dashboard-accent-hover)]">
-          {identity.initials}
+        <span className="dashboard-navigation-icon flex size-8 shrink-0 items-center justify-center rounded-full">
+          {identity.initials ? (
+            <span className="text-xs font-black">{identity.initials}</span>
+          ) : (
+            <CircleUserRound className="size-4" />
+          )}
         </span>
         <span className="hidden min-w-0 text-right sm:block">
           <span className="block truncate text-sm font-black text-slate-900">
@@ -408,20 +413,11 @@ function MobileBottomNavigation({
               href={href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-black transition-all duration-300",
-                active
-                  ? "bg-[color:var(--dashboard-accent-soft)] text-[color:var(--dashboard-accent-hover)] shadow-sm"
-                  : "text-slate-400 hover:text-slate-700",
+                "dashboard-navigation-link flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-black transition-all duration-300",
+                !active && "text-slate-400",
               )}
             >
-              <span
-                className={cn(
-                  "flex size-10 items-center justify-center rounded-2xl transition-all duration-300",
-                  active
-                    ? "bg-[color:var(--dashboard-accent-border)] text-[color:var(--dashboard-accent-hover)]"
-                    : "bg-transparent text-slate-400",
-                )}
-              >
+              <span className="dashboard-navigation-icon flex size-10 items-center justify-center rounded-2xl transition-all duration-300">
                 <Icon className="size-4" />
               </span>
               <span className="truncate">{label}</span>
