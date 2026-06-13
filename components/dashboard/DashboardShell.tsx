@@ -227,7 +227,7 @@ function PlatformSwitcher({
             className={cn(
               "flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-black transition-colors",
               active
-                ? "border-[color:var(--dashboard-accent-border)] bg-[color:var(--dashboard-accent-soft)] text-slate-900"
+                ? "dashboard-platform-active"
                 : "border-slate-200 bg-white text-slate-400 hover:bg-slate-50 hover:text-slate-700",
             )}
           >
@@ -252,7 +252,7 @@ function DashboardBrand({ platform }: { platform: PlatformSlug }) {
       href={dashboardPath(platform)}
       className="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200/80 px-5 transition-colors hover:bg-slate-50"
     >
-      <span className="flex size-11 items-center justify-center rounded-2xl bg-[color:var(--dashboard-accent)] text-white shadow-lg shadow-[color:var(--dashboard-accent-shadow)]">
+      <span className="dashboard-accent-icon flex size-11 items-center justify-center rounded-2xl">
         <Bot className="size-5" />
       </span>
       <span>
@@ -294,18 +294,13 @@ function DashboardNavigation({
             aria-current={active ? "page" : undefined}
             onClick={onNavigate}
             className={cn(
-              "group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-bold ring-1 ring-transparent transition-all duration-200",
-              active
-                ? "bg-[color:var(--dashboard-accent-soft)] text-slate-950 ring-[color:var(--dashboard-accent-border)] shadow-sm"
-                : "text-slate-600 hover:bg-[color:var(--dashboard-accent-soft)] hover:text-slate-900",
+              "dashboard-navigation-link group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-bold ring-1 ring-transparent transition-all duration-200",
+              !active && "text-slate-600",
             )}
           >
             <span
               className={cn(
-                "flex size-9 items-center justify-center rounded-xl transition-transform group-hover:scale-105",
-                active
-                  ? "bg-[color:var(--dashboard-accent-border)] text-[color:var(--dashboard-accent-hover)]"
-                  : "bg-slate-100 text-slate-500 group-hover:bg-[color:var(--dashboard-accent-soft)] group-hover:text-[color:var(--dashboard-accent-hover)]",
+                "dashboard-navigation-icon flex size-9 items-center justify-center rounded-xl transition-transform group-hover:scale-105",
               )}
             >
               <Icon className="size-4" />

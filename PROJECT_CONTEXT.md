@@ -74,6 +74,10 @@ app/
   page.tsx                           Landing composition and content sections
   login/page.tsx                     Phone/OTP login UI
   actions/auth.ts                    OTP verification Server Action
+  (site)/
+    layout.tsx                       Shared public-site footer boundary
+    page.tsx                         Landing composition and content sections
+    login/page.tsx                   Phone/OTP login UI
   (dashboard)/
     layout.tsx                       Session-gated dashboard shell
     dashboard/[platform]/page.tsx    Platform-scoped summary counts
@@ -120,6 +124,7 @@ components/
   dashboard/DashboardShell.tsx       Responsive dashboard navigation shell
   landing/LandingHero.tsx            Full-screen sticky landing hero
   landing/PageSection.tsx            Compound server-rendered content section
+  site/SiteFooter.tsx                Shared Telegram/Bale public footer
   ui/                                Generated shadcn components
 
 instrumentation.ts                   Optional process-wide outbound proxy
@@ -402,6 +407,9 @@ There is no test script or test suite.
 ## Styling and UI Conventions
 
 - The root document is Persian: `lang="fa"` and `dir="rtl"`.
+- Public pages live under the URL-transparent `(site)` route group and share a
+  dark responsive footer. Dashboard routes remain in `(dashboard)` and never
+  render public-site chrome.
 - The root font is `Vazirmatn` from `next/font/google`.
 - Tailwind CSS is imported from `app/tailwindcss.css`.
 - Brand colors use explicit semantic tokens: `brand-telegram` for Telegram blue,
@@ -425,7 +433,12 @@ There is no test script or test suite.
   shadow. Each section has extra scroll track after becoming fully visible so
   readers have a pause before the next sheet arrives. Unsupported browsers
   receive a fully visible static layout, and motion is disabled for
-  `prefers-reduced-motion`.
+  `prefers-reduced-motion`. Each section clips horizontal overflow so the
+  left/right entrance transforms cannot widen the page or create an x-axis
+  scrollbar; vertical overflow remains available for sticky positioning. The
+  document and landing root also use `overflow-x: clip` and explicit full-width
+  constraints to prevent transformed visual bounds from becoming root-level
+  horizontal scroll overflow in RTL browsers.
 - shadcn aliases use `@/components`, `@/components/ui`, and `@/lib`.
 - UI components are a mix of Server Components and small Client Components.
 - Most user-facing copy is Persian.
@@ -434,9 +447,11 @@ There is no test script or test suite.
   narrow Client Component responsible for active navigation state and the
   mobile overlay sidebar. The compact translucent header and sidebar brand row
   share the same height, sidebar navigation scrolls independently, and the main
-  content uses a fixed low-contrast blue cloud background. Dashboard navigation,
-  buttons, icons, card borders, and shadows share one restrained Telegram-blue
-  accent; secondary colors are reserved for semantic statuses and warnings.
+  content uses a fixed low-contrast platform-tinted cloud background. The
+  platform route sets semantic CSS variables on the shell: Telegram uses its
+  blue brand and Bale uses its green brand for buttons, focus rings, navigation,
+  icons, borders, card shadows, and restrained decorative surfaces. This is a
+  CSS-only theme switch with no context provider or client-side theme state.
 - The header/sidebar switcher displays both platform logos and only preserves
   list-level sections when changing platforms, so resource IDs never cross
   platform boundaries.
@@ -445,6 +460,9 @@ There is no test script or test suite.
   `AddBotPanel` until the user selects "افزودن ربات جدید". Campaign cards link
   to a dedicated detail route; the data model associates exactly one `Post`
   with each `Campaign`.
+- `SiteFooter` is a Server Component with no client runtime. It includes the
+  public CTA, product navigation, official Telegram/Bale documentation links,
+  platform imagery, and copyright year.
 
 `components.json` points to `app/globals.css`, but the actual stylesheet is
 `app/tailwindcss.css`. Account for this when generating new shadcn components.

@@ -26,11 +26,11 @@ export function LandingHero() {
       />
       <div
         aria-hidden="true"
-        className="absolute -left-20 top-6 size-64 rounded-full bg-white/25 blur-3xl"
+        className="absolute hidden md:block -left-20 top-6 size-64 rounded-full bg-white/25 blur-3xl"
       />
       <div
         aria-hidden="true"
-        className="absolute -right-16 bottom-0 size-72 rounded-full bg-brand-lilac/40 blur-3xl"
+        className="absolute hidden md:bock -right-16 bottom-0 size-72 rounded-full bg-brand-lilac/40 blur-3xl"
       />
 
       <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-visible bg-white">

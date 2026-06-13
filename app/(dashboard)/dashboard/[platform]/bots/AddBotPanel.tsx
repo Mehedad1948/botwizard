@@ -51,7 +51,7 @@ export function AddBotPanel({ platform }: { platform: PlatformSlug }) {
                   href={config.tokenGuideUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="font-bold text-sky-600 hover:underline"
+                  className="dashboard-accent-link font-bold hover:underline"
                   dir="ltr"
                 >
                   {config.tokenIssuer}
