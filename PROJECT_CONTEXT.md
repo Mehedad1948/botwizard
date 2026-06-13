@@ -121,6 +121,7 @@ prisma/
 
 components/
   auth/TelegramLoginWidget.tsx       Alternative Telegram login client
+  dashboard/CampaignCard.tsx         Shared campaign card for campaign and bot views
   dashboard/DashboardShell.tsx       Responsive dashboard navigation shell
   landing/LandingHero.tsx            Full-screen sticky landing hero
   landing/PageSection.tsx            Compound server-rendered content section

@@ -53,46 +53,6 @@ export async function toggleBotStatusAction(
   return { success: true };
 }
 
-export async function toggleCampaignStatusAction(
-  platform: PlatformSlug,
-  botId: string,
-  campaignId: string,
-): Promise<ActionResult> {
-  const bot = await getOwnedBot(platform, botId);
-  if (!bot) return { error: "ربات یافت نشد یا به آن دسترسی ندارید." };
-
-  const campaign = await prisma.campaign.findFirst({
-    where: { id: campaignId, botId: bot.id },
-    select: { id: true, isActive: true },
-  });
-  if (!campaign) return { error: "کمپین موردنظر یافت نشد." };
-
-  await prisma.campaign.update({
-    where: { id: campaign.id },
-    data: { isActive: !campaign.isActive },
-  });
-
-  revalidateBotPages(platform, botId);
-  return { success: true };
-}
-
-export async function deleteCampaignAction(
-  platform: PlatformSlug,
-  botId: string,
-  campaignId: string,
-): Promise<ActionResult> {
-  const bot = await getOwnedBot(platform, botId);
-  if (!bot) return { error: "ربات یافت نشد یا به آن دسترسی ندارید." };
-
-  const deleted = await prisma.campaign.deleteMany({
-    where: { id: campaignId, botId: bot.id },
-  });
-  if (deleted.count !== 1) return { error: "کمپین موردنظر یافت نشد." };
-
-  revalidateBotPages(platform, botId);
-  return { success: true };
-}
-
 export async function deletePostAction(
   platform: PlatformSlug,
   botId: string,

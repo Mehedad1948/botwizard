@@ -1,4 +1,5 @@
 import { ConfirmedActionButton } from "@/components/dashboard/ConfirmedActionButton";
+import { CampaignCard } from "@/components/dashboard/CampaignCard";
 import { Button } from "@/components/ui/button";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/session";
@@ -7,14 +8,8 @@ import {
   ArrowRight,
   Bot,
   CalendarClock,
-  CircleCheck,
-  CircleX,
-  Clock3,
   ExternalLink,
   FileText,
-  MessageSquare,
-  Pause,
-  Play,
   Power,
   Trash2,
   Users,
@@ -28,11 +23,9 @@ import {
 } from "@/services/bot-platforms/config";
 import { requirePlatformSlug } from "@/services/bot-platforms/server";
 import {
-  deleteCampaignAction,
   deletePostAction,
   leaveConnectedChatAction,
   toggleBotStatusAction,
-  toggleCampaignStatusAction,
 } from "./actions";
 
 const tehranDateTime = new Intl.DateTimeFormat("fa-IR", {
@@ -40,18 +33,6 @@ const tehranDateTime = new Intl.DateTimeFormat("fa-IR", {
   dateStyle: "medium",
   timeStyle: "short",
 });
-
-function formatSchedule(campaign: {
-  scheduleType: "INTERVAL" | "SPECIFIC_TIMES";
-  intervalHours: number | null;
-  specificTimes: string[];
-}) {
-  if (campaign.scheduleType === "SPECIFIC_TIMES") {
-    return `روزانه در ${campaign.specificTimes.join("، ")}`;
-  }
-
-  return `هر ${campaign.intervalHours ?? "نامشخص"} ساعت`;
-}
 
 function contentPreview(content: string | null) {
   if (!content) return "محتوای رسانه‌ای بدون متن";
@@ -87,13 +68,6 @@ export default async function BotWorkspacePage({
       },
       campaigns: {
         include: {
-          post: {
-            select: { id: true, content: true, mediaType: true },
-          },
-          history: {
-            orderBy: { sentAt: "desc" },
-            take: 5,
-          },
           _count: { select: { history: true } },
         },
         orderBy: { createdAt: "desc" },
@@ -199,104 +173,20 @@ export default async function BotWorkspacePage({
           <EmptyState text="هنوز کمپینی برای این ربات ثبت نشده است." />
         ) : (
           <div className="grid gap-4 lg:grid-cols-2">
-            {bot.campaigns.map((campaign) => {
-              const successCount = campaign.history.filter(
-                (history) => history.status === "SUCCESS"
-              ).length;
-              const failedCount = campaign.history.filter(
-                (history) => history.status === "FAILED"
-              ).length;
-
-              return (
-                <article
-                  key={campaign.id}
-                  className="space-y-4 rounded-2xl border bg-card p-5 shadow-sm"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="mb-2 flex flex-wrap items-center gap-2">
-                        <StatusBadge active={campaign.isActive} />
-                        <span className="rounded-full bg-muted px-2.5 py-1 text-xs">
-                          {formatSchedule(campaign)}
-                        </span>
-                      </div>
-                      <h3 className="font-semibold">{campaign.chatTitle}</h3>
-                      <p
-                        className="mt-1 text-xs text-muted-foreground"
-                        dir="ltr"
-                      >
-                        {campaign.chatId}
-                      </p>
-                    </div>
-                    <CalendarClock className="size-5 text-muted-foreground" />
-                  </div>
-
-                  <div className="rounded-xl bg-muted/60 p-3">
-                    <p className="mb-1 text-xs font-medium text-muted-foreground">
-                      محتوای مرتبط
-                    </p>
-                    <p className="line-clamp-3 text-sm leading-6">
-                      {contentPreview(campaign.post.content)}
-                    </p>
-                  </div>
-
-                  <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
-                    <p className="flex items-center gap-2">
-                      <Clock3 className="size-4" />
-                      اجرای بعدی: {tehranDateTime.format(campaign.nextRun)}
-                    </p>
-                    <p className="flex items-center gap-2">
-                      <MessageSquare className="size-4" />
-                      تاریخچه: {campaign._count.history.toLocaleString("fa-IR")} ارسال
-                    </p>
-                    <p className="flex items-center gap-2 text-green-600">
-                      <CircleCheck className="size-4" />
-                      موفق در ۵ اجرای اخیر: {successCount.toLocaleString("fa-IR")}
-                    </p>
-                    <p className="flex items-center gap-2 text-red-600">
-                      <CircleX className="size-4" />
-                      ناموفق در ۵ اجرای اخیر: {failedCount.toLocaleString("fa-IR")}
-                    </p>
-                  </div>
-
-                  {campaign.history[0]?.errorLog && (
-                    <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs leading-6 text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
-                      آخرین خطا: {campaign.history[0].errorLog}
-                    </div>
-                  )}
-
-                  <div className="flex flex-wrap gap-2 border-t pt-4">
-                    <ConfirmedActionButton
-                      action={toggleCampaignStatusAction.bind(
-                        null,
-                        platformSlug,
-                        bot.id,
-                        campaign.id
-                      )}
-                      pendingLabel="در حال تغییر..."
-                    >
-                      {campaign.isActive ? <Pause /> : <Play />}
-                      {campaign.isActive ? "توقف کمپین" : "فعال‌سازی"}
-                    </ConfirmedActionButton>
-                    <ConfirmedActionButton
-                      action={deleteCampaignAction.bind(
-                        null,
-                        platformSlug,
-                        bot.id,
-                        campaign.id
-                      )}
-                      confirmTitle="حذف دائمی کمپین؟"
-                      confirmDescription="این کمپین و تمام تاریخچه ارسال آن برای همیشه حذف می‌شود. این عملیات قابل بازگشت نیست."
-                      pendingLabel="در حال حذف..."
-                      variant="destructive"
-                    >
-                      <Trash2 />
-                      حذف کمپین
-                    </ConfirmedActionButton>
-                  </div>
-                </article>
-              );
-            })}
+            {bot.campaigns.map((campaign) => (
+              <CampaignCard
+                key={campaign.id}
+                campaign={{
+                  ...campaign,
+                  bot: {
+                    id: bot.id,
+                    username: bot.username,
+                  },
+                }}
+                platform={platformSlug}
+                showBotDetails={false}
+              />
+            ))}
           </div>
         )}
       </section>
@@ -471,20 +361,6 @@ function SectionHeading({
         {count.toLocaleString("fa-IR")}
       </span>
     </div>
-  );
-}
-
-function StatusBadge({ active }: { active: boolean }) {
-  return (
-    <span
-      className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-        active
-          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
-          : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
-      }`}
-    >
-      {active ? "فعال" : "متوقف"}
-    </span>
   );
 }
 
