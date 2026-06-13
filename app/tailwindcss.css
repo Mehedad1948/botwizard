@@ -136,6 +136,11 @@
   html {
     @apply font-sans;
   }
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: clip;
+  }
 }
 
 @layer components {
@@ -165,6 +170,20 @@
   .landing-bale-text {
     background-clip: text;
     color: transparent;
+  }
+
+  .site-footer-link {
+    color: #64748b;
+    transition:
+      color 180ms ease,
+      transform 180ms ease,
+      text-shadow 180ms ease;
+  }
+
+  .site-footer-link:hover {
+    color: #0f172a;
+    transform: translateX(-0.2rem);
+    text-shadow: 0 0 18px rgb(41 169 235 / 0.14);
   }
 
   .landing-telegram-text {
@@ -341,6 +360,7 @@
     position: relative;
     z-index: var(--landing-section-stack);
     min-height: 135svh;
+    overflow-x: clip;
   }
 
   .landing-page-section-inner {
