@@ -134,7 +134,7 @@ export function DashboardShell({
         </header>
 
         <main className="dashboard-main-background min-w-0 flex-1 overflow-y-auto">
-          <div className="relative mx-auto w-full max-w-7xl p-4 pb-24 sm:p-6 sm:pb-28 lg:p-8">
+          <div className="relative mx-auto w-full max-w-7xl p-4 pb-28 sm:p-6 sm:pb-32 lg:p-8">
             {children}
           </div>
         </main>
@@ -399,8 +399,9 @@ function MobileBottomNavigation({
   platform: PlatformSlug;
 }) {
   return (
-    <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(env(safe-area-inset-bottom),1rem)] pt-4 md:hidden">
-      <div className="pointer-events-auto mx-auto flex max-w-md items-center justify-between rounded-[1.75rem] border border-white/80 bg-white/88 px-2 py-2 shadow-[0_-12px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+    <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-40 md:hidden">
+      <div className="pointer-events-auto border-t border-slate-200/80 bg-white/95 px-2 pb-[max(env(safe-area-inset-bottom),0.4rem)] pt-1.5 shadow-[0_-6px_18px_rgba(15,23,42,0.06)] backdrop-blur-xl">
+        <div className="mx-auto flex max-w-md items-center justify-between gap-1">
         {navigation.map(({ suffix, label, icon: Icon }) => {
           const href = dashboardPath(platform, suffix);
           const active =
@@ -413,17 +414,18 @@ function MobileBottomNavigation({
               href={href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "dashboard-navigation-link flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-black transition-all duration-300",
+                "dashboard-navigation-link flex min-w-0 flex-1 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-[10px] font-black transition-all duration-300",
                 !active && "text-slate-400",
               )}
             >
-              <span className="dashboard-navigation-icon flex size-10 items-center justify-center rounded-2xl transition-all duration-300">
+              <span className="dashboard-navigation-icon flex size-9 items-center justify-center rounded-xl transition-all duration-300">
                 <Icon className="size-4" />
               </span>
               <span className="truncate">{label}</span>
             </Link>
           );
         })}
+        </div>
       </div>
     </nav>
   );
