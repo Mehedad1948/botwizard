@@ -1,17 +1,19 @@
 "use client";
 
+import { logoutAction } from "@/app/actions/auth";
 import {
   Bot,
   CalendarClock,
-  CircleUserRound,
+  ChevronDown,
   LayoutDashboard,
+  LogOut,
   Menu,
   X,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -28,10 +30,26 @@ const navigation = [
   { suffix: "campaigns", label: "کمپین‌ها", icon: CalendarClock },
 ] as const;
 
-export function DashboardShell({ children }: { children: ReactNode }) {
+type DashboardUser = {
+  firstName: string | null;
+  lastName: string | null;
+  username: string | null;
+  phone: string | null;
+  telegramId: string | null;
+};
+
+export function DashboardShell({
+  children,
+  user,
+}: {
+  children: ReactNode;
+  user: DashboardUser;
+}) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const platform = getPlatformFromPath(pathname);
+  const identity = useMemo(() => getUserIdentity(user), [user]);
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -49,19 +67,42 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     };
   }, [mobileOpen]);
 
+  useEffect(() => {
+    if (!profileOpen) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (target.closest("[data-dashboard-profile]")) return;
+      setProfileOpen(false);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setProfileOpen(false);
+    };
+
+    window.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [profileOpen]);
+
   return (
-    <div className="dashboard-shell flex h-svh overflow-hidden bg-slate-50">
+    <div
+      className="dashboard-shell flex h-svh overflow-hidden bg-slate-50"
+      data-platform={platform}
+    >
       <aside className="hidden min-h-0 w-72 shrink-0 border-l border-slate-200/80 bg-white md:flex md:flex-col">
         <DashboardBrand platform={platform} />
         <PlatformSwitcher pathname={pathname} platform={platform} />
-        <DashboardNavigation
-          pathname={pathname}
-          platform={platform}
-        />
+        <DashboardNavigation pathname={pathname} platform={platform} />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between border-b border-sky-100/80 bg-white/85 px-4 shadow-sm shadow-sky-950/5 backdrop-blur-xl sm:px-6 lg:px-8">
+        <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/85 px-4 shadow-sm shadow-slate-950/5 backdrop-blur-xl sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <Button
               type="button"
@@ -83,19 +124,16 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             </div>
           </div>
 
-          <Button
-            type="button"
-            variant="brand-outline"
-            size="brand-sm"
-            className="px-4 shadow-sm"
-          >
-            <CircleUserRound className="size-4" />
-            پروفایل
-          </Button>
+          <ProfileMenu
+            identity={identity}
+            open={profileOpen}
+            onToggle={() => setProfileOpen((current) => !current)}
+            onClose={() => setProfileOpen(false)}
+          />
         </header>
 
         <main className="dashboard-main-background min-w-0 flex-1 overflow-y-auto">
-          <div className="relative mx-auto w-full max-w-7xl p-4 sm:p-6 lg:p-8">
+          <div className="relative mx-auto w-full max-w-7xl p-4 pb-24 sm:p-6 sm:pb-28 lg:p-8">
             {children}
           </div>
         </main>
@@ -149,6 +187,8 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           />
         </aside>
       </div>
+
+      <MobileBottomNavigation pathname={pathname} platform={platform} />
     </div>
   );
 }
@@ -187,7 +227,7 @@ function PlatformSwitcher({
             className={cn(
               "flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-black transition-colors",
               active
-                ? "border-sky-200 bg-sky-50 text-slate-900"
+                ? "border-[color:var(--dashboard-accent-border)] bg-[color:var(--dashboard-accent-soft)] text-slate-900"
                 : "border-slate-200 bg-white text-slate-400 hover:bg-slate-50 hover:text-slate-700",
             )}
           >
@@ -212,7 +252,7 @@ function DashboardBrand({ platform }: { platform: PlatformSlug }) {
       href={dashboardPath(platform)}
       className="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200/80 px-5 transition-colors hover:bg-slate-50"
     >
-      <span className="flex size-11 items-center justify-center rounded-2xl bg-brand-telegram text-white shadow-lg shadow-brand-telegram/20">
+      <span className="flex size-11 items-center justify-center rounded-2xl bg-[color:var(--dashboard-accent)] text-white shadow-lg shadow-[color:var(--dashboard-accent-shadow)]">
         <Bot className="size-5" />
       </span>
       <span>
@@ -256,16 +296,16 @@ function DashboardNavigation({
             className={cn(
               "group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-bold ring-1 ring-transparent transition-all duration-200",
               active
-                ? "bg-sky-100 text-sky-950 ring-sky-200 shadow-sm"
-                : "text-slate-600 hover:bg-sky-50 hover:text-sky-900",
+                ? "bg-[color:var(--dashboard-accent-soft)] text-slate-950 ring-[color:var(--dashboard-accent-border)] shadow-sm"
+                : "text-slate-600 hover:bg-[color:var(--dashboard-accent-soft)] hover:text-slate-900",
             )}
           >
             <span
               className={cn(
                 "flex size-9 items-center justify-center rounded-xl transition-transform group-hover:scale-105",
                 active
-                  ? "bg-sky-200/70 text-sky-700"
-                  : "bg-slate-100 text-slate-500 group-hover:bg-sky-100 group-hover:text-sky-700",
+                  ? "bg-[color:var(--dashboard-accent-border)] text-[color:var(--dashboard-accent-hover)]"
+                  : "bg-slate-100 text-slate-500 group-hover:bg-[color:var(--dashboard-accent-soft)] group-hover:text-[color:var(--dashboard-accent-hover)]",
               )}
             >
               <Icon className="size-4" />
@@ -276,4 +316,149 @@ function DashboardNavigation({
       })}
     </nav>
   );
+}
+
+function ProfileMenu({
+  identity,
+  open,
+  onToggle,
+  onClose,
+}: {
+  identity: ReturnType<typeof getUserIdentity>;
+  open: boolean;
+  onToggle: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="relative" data-dashboard-profile="">
+      <Button
+        type="button"
+        variant="brand-outline"
+        size="brand-sm"
+        className="min-w-0 gap-3 px-3 shadow-sm sm:px-4"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        onClick={onToggle}
+      >
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[color:var(--dashboard-accent-soft)] text-[color:var(--dashboard-accent-hover)]">
+          {identity.initials}
+        </span>
+        <span className="hidden min-w-0 text-right sm:block">
+          <span className="block truncate text-sm font-black text-slate-900">
+            {identity.displayName}
+          </span>
+          <span className="block truncate text-[11px] font-semibold text-slate-500">
+            {identity.secondary}
+          </span>
+        </span>
+        <ChevronDown
+          className={cn(
+            "size-4 text-slate-500 transition-transform duration-200",
+            open && "rotate-180",
+          )}
+        />
+      </Button>
+
+      <div
+        className={cn(
+          "absolute left-0 top-[calc(100%+0.75rem)] z-40 w-72 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-xl shadow-slate-950/10 transition-all duration-200",
+          open
+            ? "translate-y-0 opacity-100"
+            : "pointer-events-none -translate-y-2 opacity-0",
+        )}
+        role="menu"
+      >
+        <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-3">
+          <p className="text-sm font-black text-slate-950">{identity.displayName}</p>
+          <p className="mt-1 text-xs font-medium text-slate-500">
+            {identity.secondary}
+          </p>
+        </div>
+        <form action={logoutAction} className="mt-3">
+          <Button
+            type="submit"
+            variant="brand-outline"
+            size="brand-sm"
+            className="w-full justify-between px-4 text-red-600 hover:text-red-700"
+            onClick={onClose}
+          >
+            <span>خروج از حساب</span>
+            <LogOut className="size-4" />
+          </Button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function MobileBottomNavigation({
+  pathname,
+  platform,
+}: {
+  pathname: string;
+  platform: PlatformSlug;
+}) {
+  return (
+    <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(env(safe-area-inset-bottom),1rem)] pt-4 md:hidden">
+      <div className="pointer-events-auto mx-auto flex max-w-md items-center justify-between rounded-[1.75rem] border border-white/80 bg-white/88 px-2 py-2 shadow-[0_-12px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+        {navigation.map(({ suffix, label, icon: Icon }) => {
+          const href = dashboardPath(platform, suffix);
+          const active =
+            suffix === ""
+              ? pathname === href
+              : pathname === href || pathname.startsWith(`${href}/`);
+          return (
+            <Link
+              key={suffix || "dashboard-mobile"}
+              href={href}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-black transition-all duration-300",
+                active
+                  ? "bg-[color:var(--dashboard-accent-soft)] text-[color:var(--dashboard-accent-hover)] shadow-sm"
+                  : "text-slate-400 hover:text-slate-700",
+              )}
+            >
+              <span
+                className={cn(
+                  "flex size-10 items-center justify-center rounded-2xl transition-all duration-300",
+                  active
+                    ? "bg-[color:var(--dashboard-accent-border)] text-[color:var(--dashboard-accent-hover)]"
+                    : "bg-transparent text-slate-400",
+                )}
+              >
+                <Icon className="size-4" />
+              </span>
+              <span className="truncate">{label}</span>
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
+
+function getUserIdentity(user: DashboardUser) {
+  const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
+  const displayName =
+    fullName ||
+    (user.username ? `@${user.username}` : null) ||
+    user.phone ||
+    (user.telegramId ? `ID ${user.telegramId}` : null) ||
+    "کاربر";
+  const secondary =
+    user.phone ||
+    (user.username ? `@${user.username}` : null) ||
+    (user.telegramId ? `شناسه ${user.telegramId}` : null) ||
+    "حساب کاربری";
+  const initialsSource = fullName || user.username || user.phone || "کاربر";
+  const initials = Array.from(initialsSource.replace(/^@/, "").trim())
+    .slice(0, 2)
+    .join("");
+
+  return {
+    displayName,
+    secondary,
+    initials,
+  };
 }

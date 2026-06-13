@@ -3,10 +3,12 @@
 import { verifyOtpHash } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import {
+  clearSession,
   clearOtpChallenge,
   createSession,
   getOtpChallengeUserId,
 } from "@/lib/session";
+import { redirect } from "next/navigation";
 
 const MAX_OTP_ATTEMPTS = 5;
 
@@ -83,4 +85,10 @@ export async function verifyOtpAction(code: string) {
   } catch {
     return { error: "اعتبارسنجی انجام نشد. لطفاً دوباره تلاش کنید." };
   }
+}
+
+export async function logoutAction() {
+  await clearOtpChallenge();
+  await clearSession();
+  redirect("/login");
 }

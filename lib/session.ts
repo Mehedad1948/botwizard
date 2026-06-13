@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 
 const SESSION_COOKIE = "session";
 const OTP_CHALLENGE_COOKIE = "otp_challenge";
+const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
 
 function getKey() {
   const secretKey = process.env.SESSION_SECRET;
@@ -20,7 +21,7 @@ export async function encrypt(payload: any) {
   return await new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime("7d")
+    .setExpirationTime("30d")
     .sign(getKey());
 }
 
@@ -32,7 +33,7 @@ export async function decrypt(input: string): Promise<any> {
 }
 
 export async function createSession(userId: string) {
-  const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const expires = new Date(Date.now() + SESSION_DURATION_MS);
   const session = await encrypt({ userId, expires, purpose: "session" });
 
   const cookieStore = await cookies();
@@ -72,6 +73,11 @@ export async function createOtpChallenge(userId: string) {
     sameSite: "strict",
     path: "/",
   });
+}
+
+export async function clearSession() {
+  const cookieStore = await cookies();
+  cookieStore.delete(SESSION_COOKIE);
 }
 
 export async function getOtpChallengeUserId(): Promise<string | null> {

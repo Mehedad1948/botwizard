@@ -199,7 +199,7 @@ Configure the production origin and login URL in BotFather under:
 - Cookie name: `session`
 - Payload: `{ userId, expires, purpose: "session" }`
 - Signature: HS256 using `SESSION_SECRET`
-- Lifetime: seven days
+- Lifetime: thirty days
 - Cookie: HTTP-only, `sameSite=lax`, secure in production, path `/`
 
 `getSession()` verifies only the JWT signature/expiry. It does not confirm that
@@ -522,7 +522,7 @@ Treat these as known issues, not established design choices:
 - No automated tests exist.
 - No CI configuration exists.
 - No scheduler/deployment configuration exists.
-- No logout action exists.
+- Logout is handled through a Server Action that clears OTP/session cookies and redirects to `/login`.
 - `createPostAction` exists, but the current posts page has no create-post form.
 - The posts page contains a debug `console.log`.
 

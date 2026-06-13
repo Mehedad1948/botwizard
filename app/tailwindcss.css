@@ -214,6 +214,14 @@
     --dashboard-accent-shadow: rgb(41 169 235 / 0.08);
   }
 
+  .dashboard-shell[data-platform="bale"] {
+    --dashboard-accent: var(--brand-bale);
+    --dashboard-accent-hover: #009b7d;
+    --dashboard-accent-soft: rgb(0 184 148 / 0.1);
+    --dashboard-accent-border: rgb(0 184 148 / 0.24);
+    --dashboard-accent-shadow: rgb(0 184 148 / 0.08);
+  }
+
   .dashboard-shell [data-slot="button"][data-variant="default"],
   .dashboard-shell [data-slot="button"][data-variant="brand-dark"] {
     background: var(--dashboard-accent);
