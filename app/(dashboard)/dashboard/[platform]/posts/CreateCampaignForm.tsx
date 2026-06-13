@@ -18,10 +18,12 @@ export function CreateCampaignForm({
   platform,
   postId,
   destinations,
+  hasNotificationTopics = true,
 }: {
   platform: PlatformSlug;
   postId: string;
   destinations: Destination[];
+  hasNotificationTopics?: boolean;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
@@ -105,6 +107,27 @@ export function CreateCampaignForm({
       className="space-y-3 rounded-xl bg-muted/50 p-3"
     >
       <input type="hidden" name="postId" value={postId} />
+      <label className="flex items-start gap-3 rounded-xl border border-sky-100 bg-sky-50/80 p-3 text-xs leading-6 text-slate-700">
+        <input
+          type="checkbox"
+          name="notifySubscribers"
+          disabled={!hasNotificationTopics}
+          className="mt-1 size-4 accent-[color:var(--dashboard-accent)]"
+        />
+        <span>
+          <strong className="block text-sm text-slate-900">
+            اعلان به مشترک‌های منطبق
+          </strong>
+          فقط کاربرانی اعلان خصوصی می‌گیرند که ربات را شروع کرده و حداقل یکی از
+          موضوع‌های این پست را انتخاب کرده باشند.
+          {!hasNotificationTopics && (
+            <span className="mt-1 block font-bold text-amber-700">
+              ابتدا حداقل یک موضوع فعال به این پست اختصاص دهید.
+            </span>
+          )}
+        </span>
+      </label>
+
       <div className="grid gap-2 sm:grid-cols-2">
         <select
           name="connectedChatId"

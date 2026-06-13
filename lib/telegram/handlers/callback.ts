@@ -1,5 +1,6 @@
 // src/lib/telegram/handlers/callback.ts
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { randomUUID } from "node:crypto";
 import prisma from "@/lib/prisma";
 import { callTelegramAPI } from "../api";
 import { Bot } from "@prisma/client";
@@ -313,6 +314,7 @@ export async function handleCallbackQuery(callback_query: any, bot: Bot) {
                 where: { botId: bot.id, chatId: { in: targetGroups } }
             });
             const chatTitleMap = new Map(connectedChats.map(c => [c.chatId, c.chatTitle]));
+            const subscriberAudienceKey = randomUUID();
 
             for (const tId of targetGroups) {
                 await prisma.campaign.create({
@@ -323,6 +325,7 @@ export async function handleCallbackQuery(callback_query: any, bot: Bot) {
                         chatTitle: chatTitleMap.get(tId) || "گروه ناشناس",
                         scheduleType: "INTERVAL",
                         intervalHours: intervalNum,
+                        subscriberAudienceKey,
                         isActive: true,
                         nextRun: new Date(Date.now() + intervalNum * 60 * 60 * 1000),
                     }

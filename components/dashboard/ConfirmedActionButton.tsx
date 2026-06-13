@@ -29,6 +29,7 @@ type ConfirmedActionButtonProps = {
   variant?: React.ComponentProps<typeof Button>["variant"];
   size?: React.ComponentProps<typeof Button>["size"];
   className?: string;
+  ariaLabel?: string;
 };
 
 export function ConfirmedActionButton({
@@ -40,6 +41,7 @@ export function ConfirmedActionButton({
   variant = "outline",
   size = "sm",
   className,
+  ariaLabel,
 }: ConfirmedActionButtonProps) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState("");
@@ -76,6 +78,7 @@ export function ConfirmedActionButton({
           className={className}
           disabled={pending}
           onClick={runAction}
+          aria-label={ariaLabel}
         >
           {content}
         </Button>
@@ -94,6 +97,7 @@ export function ConfirmedActionButton({
             size={size}
             className={className}
             disabled={pending}
+            aria-label={ariaLabel}
           >
             {content}
           </Button>

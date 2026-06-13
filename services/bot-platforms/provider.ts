@@ -12,6 +12,9 @@ export type BotApiResponse<T = unknown> = {
   result?: T;
   description?: string;
   error_code?: number;
+  parameters?: {
+    retry_after?: number;
+  };
   [key: string]: unknown;
 };
 
@@ -21,6 +24,27 @@ export type BotIdentity = {
   first_name?: string;
   username?: string;
 };
+
+export type PrivatePostContent = {
+  content: string | null;
+  sourceChatId: string | null;
+  sourceMessageId: number | null;
+};
+
+export type ProviderErrorKind =
+  | "BLOCKED"
+  | "RATE_LIMITED"
+  | "TRANSIENT"
+  | "TERMINAL";
+
+export type ProviderSendResult =
+  | { ok: true; providerMessageId?: string }
+  | {
+      ok: false;
+      kind: ProviderErrorKind;
+      description: string;
+      retryAfterSeconds?: number;
+    };
 
 export interface BotPlatformProvider {
   readonly platform: BotPlatformValue;
@@ -33,6 +57,11 @@ export interface BotPlatformProvider {
   getMe(token: string): Promise<BotIdentity>;
   setWebhook(token: string, url: string): Promise<void>;
   deleteWebhook(token: string): Promise<void>;
+  sendPrivatePost(
+    token: string,
+    privateChatId: string,
+    post: PrivatePostContent,
+  ): Promise<ProviderSendResult>;
 }
 
 class HttpBotPlatformProvider implements BotPlatformProvider {
@@ -103,6 +132,76 @@ class HttpBotPlatformProvider implements BotPlatformProvider {
       throw new Error(response.description || "حذف وب‌هوک ربات انجام نشد.");
     }
   }
+
+  async sendPrivatePost(
+    token: string,
+    privateChatId: string,
+    post: PrivatePostContent,
+  ): Promise<ProviderSendResult> {
+    const method =
+      post.sourceChatId && post.sourceMessageId ? "copyMessage" : "sendMessage";
+    const response = await this.call<{ message_id?: number | string }>(
+      token,
+      method,
+      method === "copyMessage"
+        ? {
+            chat_id: privateChatId,
+            from_chat_id: post.sourceChatId,
+            message_id: post.sourceMessageId,
+          }
+        : {
+            chat_id: privateChatId,
+            text: post.content || "محتوای بدون متن",
+          },
+    );
+
+    if (response.ok) {
+      const messageId = response.result?.message_id;
+      return {
+        ok: true,
+        providerMessageId:
+          messageId === undefined ? undefined : String(messageId),
+      };
+    }
+
+    return classifyProviderError(response);
+  }
+}
+
+export function classifyProviderError(
+  response: BotApiResponse,
+): ProviderSendResult {
+  const description = response.description || "ارسال پیام ناموفق بود.";
+  const normalized = description.toLowerCase();
+
+  if (
+    normalized.includes("bot was blocked") ||
+    normalized.includes("user is deactivated") ||
+    normalized.includes("chat not found") ||
+    normalized.includes("forbidden")
+  ) {
+    return { ok: false, kind: "BLOCKED", description };
+  }
+
+  if (response.error_code === 429 || response.parameters?.retry_after) {
+    return {
+      ok: false,
+      kind: "RATE_LIMITED",
+      description,
+      retryAfterSeconds: response.parameters?.retry_after,
+    };
+  }
+
+  if (
+    response.error_code === undefined ||
+    response.error_code >= 500 ||
+    normalized.includes("timeout") ||
+    normalized.includes("temporarily")
+  ) {
+    return { ok: false, kind: "TRANSIENT", description };
+  }
+
+  return { ok: false, kind: "TERMINAL", description };
 }
 
 const providers: Record<BotPlatformValue, BotPlatformProvider> = {

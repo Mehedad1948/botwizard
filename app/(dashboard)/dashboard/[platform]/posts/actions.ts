@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use server";
 
+import { randomUUID } from "node:crypto";
 import prisma from "@/lib/prisma";
 import { calculateNextRunForSpecificTimes } from "@/lib/scheduling";
 import { getSession } from "@/lib/session";
@@ -26,6 +27,7 @@ export async function createPostAction(
   const content = formData.get("content") as string;
   const mediaType = formData.get("mediaType") as any; 
   const mediaUrl = formData.get("mediaUrl") as string | null;
+  const topicIds = [...new Set(formData.getAll("topicId").map(String))];
 
   if (!botId) {
     throw new Error("انتخاب ربات الزامی است.");
@@ -45,12 +47,27 @@ export async function createPostAction(
       throw new Error("ربات یافت نشد یا دسترسی ندارید.");
     }
 
+    const validTopics = await prisma.notificationTopic.findMany({
+      where: {
+        botId,
+        id: { in: topicIds },
+        isActive: true,
+      },
+      select: { id: true },
+    });
+    if (validTopics.length !== topicIds.length) {
+      throw new Error("Invalid notification topic");
+    }
+
     await prisma.post.create({
       data: {
         botId,
         content: content || null,
         mediaType: mediaType || "NONE",
         mediaUrl: mediaUrl || null,
+        notificationTopics: {
+          create: validTopics.map((topic) => ({ topicId: topic.id })),
+        },
       },
     });
 
@@ -104,6 +121,7 @@ export async function createCampaignFromDashboardAction(
     .map((time) => time.trim())
     .filter(Boolean);
   const validTimePattern = /^([01]\d|2[0-3]):([0-5]\d)$/;
+  const notifySubscribers = formData.get("notifySubscribers") === "on";
 
   if (!postId || !connectedChatId) {
     return { error: "پست و مقصد معتبر را انتخاب کنید." };
@@ -134,9 +152,22 @@ export async function createCampaignFromDashboardAction(
         platform: platformFromSlug(platform),
       },
     },
-    select: { id: true, botId: true },
+    select: {
+      id: true,
+      botId: true,
+      notificationTopics: {
+        where: { topic: { isActive: true } },
+        select: { id: true },
+      },
+    },
   });
   if (!post) return { error: "پست یافت نشد یا به آن دسترسی ندارید." };
+
+  if (notifySubscribers && post.notificationTopics.length === 0) {
+    return {
+      error: "برای اعلان به مشترک‌ها ابتدا یک موضوع فعال به پست اختصاص دهید.",
+    };
+  }
 
   const connectedChat = await prisma.connectedChat.findFirst({
     where: {
@@ -169,6 +200,8 @@ export async function createCampaignFromDashboardAction(
           ? [...new Set(specificTimes)].sort()
           : [],
       isActive: true,
+      notifySubscribers,
+      subscriberAudienceKey: randomUUID(),
       nextRun:
         scheduleType === "SPECIFIC_TIMES"
           ? calculateNextRunForSpecificTimes(specificTimes)

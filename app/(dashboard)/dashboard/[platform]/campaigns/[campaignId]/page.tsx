@@ -1,4 +1,5 @@
 import { ConfirmedActionButton } from "@/components/dashboard/ConfirmedActionButton";
+import { TopicCreateForm } from "@/components/dashboard/TopicCreateForm";
 import { Button } from "@/components/ui/button";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/session";
@@ -12,14 +13,23 @@ import {
   ImageIcon,
   Pause,
   Play,
+  Plus,
   Send,
+  Tags,
   Video,
+  X,
   XCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { CreateCampaignForm } from "../../posts/CreateCampaignForm";
-import { toggleCampaignAction } from "../actions";
+import {
+  addCampaignTopicAction,
+  createCampaignTopicAction,
+  removeCampaignTopicAction,
+  toggleCampaignAction,
+  toggleCampaignSubscriberNotificationsAction,
+} from "../actions";
 import {
   dashboardPath,
   platformFromSlug,
@@ -60,9 +70,20 @@ export default async function CampaignDetailPage({
             select: { id: true, chatTitle: true },
             orderBy: { chatTitle: "asc" },
           },
+          notificationTopics: {
+            where: { isActive: true },
+            orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+            select: { id: true, name: true },
+          },
         },
       },
-      post: true,
+      post: {
+        include: {
+          notificationTopics: {
+            include: { topic: true },
+          },
+        },
+      },
       history: {
         orderBy: { sentAt: "desc" },
         take: 8,
@@ -72,6 +93,13 @@ export default async function CampaignDetailPage({
   });
 
   if (!campaign) notFound();
+
+  const assignedTopicIds = new Set(
+    campaign.post.notificationTopics.map((item) => item.topicId),
+  );
+  const availableTopics = campaign.bot.notificationTopics.filter(
+    (topic) => !assignedTopicIds.has(topic.id),
+  );
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -130,6 +158,139 @@ export default async function CampaignDetailPage({
         />
       </section>
 
+      <section className="dashboard-card flex flex-col gap-4 rounded-2xl p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="font-black text-slate-950">
+            اعلان خصوصی به مشترک‌های منطبق
+          </h2>
+          <p className="mt-1 text-sm leading-6 text-slate-500">
+            {campaign.post.notificationTopics.length
+              ? `موضوع‌ها: ${campaign.post.notificationTopics
+                  .map((item) => item.topic.name)
+                  .join("، ")}`
+              : "هنوز موضوع فعالی به این پست اختصاص داده نشده است."}
+          </p>
+          <p className="mt-1 text-xs text-slate-400">
+            فقط کاربران فعالی که ربات را خصوصی شروع کرده‌اند و موضوع منطبق دارند
+            اعلان می‌گیرند.
+          </p>
+        </div>
+        <ConfirmedActionButton
+          action={toggleCampaignSubscriberNotificationsAction.bind(
+            null,
+            platformSlug,
+            campaign.id,
+          )}
+          variant={campaign.notifySubscribers ? "outline" : "default"}
+          pendingLabel="در حال تغییر..."
+        >
+          {campaign.notifySubscribers ? <Pause /> : <Send />}
+          {campaign.notifySubscribers
+            ? "غیرفعال‌کردن اعلان مشترک‌ها"
+            : "فعال‌کردن اعلان مشترک‌ها"}
+        </ConfirmedActionButton>
+      </section>
+
+      <section className="dashboard-card space-y-5 rounded-2xl p-5 sm:p-6">
+        <div className="flex items-start gap-3">
+          <span className="dashboard-accent-icon flex size-10 shrink-0 items-center justify-center rounded-xl">
+            <Tags className="size-4" />
+          </span>
+          <div>
+            <h2 className="font-black text-slate-950">
+              موضوع‌های اعلان کمپین
+            </h2>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              موضوع‌ها به پست این کمپین متصل می‌شوند و برای کمپین‌های دیگری که
+              از همین پست استفاده می‌کنند نیز یکسان هستند.
+            </p>
+          </div>
+        </div>
+
+        <div>
+          <p className="mb-2 text-xs font-bold text-slate-500">
+            موضوع‌های انتخاب‌شده
+          </p>
+          {campaign.post.notificationTopics.length ? (
+            <div className="flex flex-wrap gap-2">
+              {campaign.post.notificationTopics.map(({ topic }) => (
+                <div
+                  key={topic.id}
+                  className="dashboard-accent-surface inline-flex items-center gap-1 rounded-full py-1 pr-3 pl-1 text-xs font-bold"
+                >
+                  {topic.name}
+                  {!topic.isActive && (
+                    <span className="text-amber-700">(غیرفعال)</span>
+                  )}
+                  <ConfirmedActionButton
+                    action={removeCampaignTopicAction.bind(
+                      null,
+                      platformSlug,
+                      campaign.id,
+                      topic.id,
+                    )}
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 rounded-full text-red-600 hover:bg-red-50 hover:text-red-700"
+                    pendingLabel="..."
+                    ariaLabel={`حذف موضوع ${topic.name}`}
+                  >
+                    <X className="size-3.5" />
+                  </ConfirmedActionButton>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">
+              هنوز موضوعی به این کمپین اختصاص داده نشده است.
+            </p>
+          )}
+        </div>
+
+        {availableTopics.length > 0 && (
+          <div>
+            <p className="mb-2 text-xs font-bold text-slate-500">
+              افزودن از موضوع‌های فعال ربات
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {availableTopics.map((topic) => (
+                <ConfirmedActionButton
+                  key={topic.id}
+                  action={addCampaignTopicAction.bind(
+                    null,
+                    platformSlug,
+                    campaign.id,
+                    topic.id,
+                  )}
+                  variant="outline"
+                  size="sm"
+                  pendingLabel="در حال افزودن..."
+                >
+                  <Plus />
+                  {topic.name}
+                </ConfirmedActionButton>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="border-t border-slate-100 pt-4">
+          <p className="mb-3 text-xs font-bold text-slate-500">
+            ایجاد موضوع جدید و اختصاص مستقیم به کمپین
+          </p>
+          <TopicCreateForm
+            action={createCampaignTopicAction.bind(
+              null,
+              platformSlug,
+              campaign.id,
+            )}
+            compact
+            submitLabel="ایجاد و اختصاص موضوع"
+            className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:space-y-0 [&_[role=alert]]:sm:col-span-2 [&_[role=status]]:sm:col-span-2 [&_button]:sm:w-auto"
+          />
+        </div>
+      </section>
+
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(19rem,0.75fr)]">
         <article className="dashboard-card space-y-5 rounded-2xl p-5 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -175,6 +336,9 @@ export default async function CampaignDetailPage({
             platform={platformSlug}
             postId={campaign.post.id}
             destinations={campaign.bot.connectedChats}
+            hasNotificationTopics={campaign.post.notificationTopics.some(
+              (item) => item.topic.isActive,
+            )}
           />
         </article>
 

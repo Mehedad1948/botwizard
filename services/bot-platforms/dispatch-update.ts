@@ -12,6 +12,7 @@ import {
 import type { BotPlatformValue } from "@/services/bot-platforms/config";
 import { runWithBotPlatform } from "@/services/bot-platforms/context";
 import { verifyPairingCode } from "@/services/bot-platforms/pairing";
+import { handleTelegramSubscriberUpdate } from "@/services/audience-notifications/webhook";
 
 export async function dispatchUserBotUpdate(
   platform: BotPlatformValue,
@@ -35,6 +36,14 @@ export async function dispatchUserBotUpdate(
 
     if (!bot.ownerPlatformUserId) {
       await handleOwnerPairing(update, senderId, bot);
+      return { ok: true, status: 200 };
+    }
+
+    if (
+      senderId &&
+      senderId !== bot.ownerPlatformUserId &&
+      (await handleTelegramSubscriberUpdate(update, bot))
+    ) {
       return { ok: true, status: 200 };
     }
 

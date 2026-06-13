@@ -41,38 +41,43 @@ model LoginToken {
 }
 
 model Bot {
-  id                      String          @id @default(cuid())
+  id                      String                           @id @default(cuid())
   userId                  String
-  user                    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  platform                BotPlatform     @default(TELEGRAM)
+  user                    User                             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform                BotPlatform                      @default(TELEGRAM)
   token                   String
   username                String
   ownerPlatformUserId     String?
   connectionCodeHash      String?
   connectionCodeExpiresAt DateTime?
-  isActive                Boolean         @default(true)
-  createdAt               DateTime        @default(now())
-  updatedAt               DateTime        @updatedAt
+  isActive                Boolean                          @default(true)
+  createdAt               DateTime                         @default(now())
+  updatedAt               DateTime                         @updatedAt
   posts                   Post[]
   campaigns               Campaign[]
   connectedChats          ConnectedChat[]
+  subscribers             BotSubscriber[]
+  notificationTopics      NotificationTopic[]
+  notificationDispatches  SubscriberNotificationDispatch[]
 
   @@unique([platform, token])
   @@index([userId, platform])
 }
 
 model Post {
-  id              String     @id @default(cuid())
-  botId           String
-  bot             Bot        @relation(fields: [botId], references: [id], onDelete: Cascade)
-  content         String?
-  mediaUrl        String?
-  mediaType       MediaType  @default(NONE)
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
-  sourceChatId    String? // برای ذخیره آیدی چت کاربر
-  sourceMessageId Int?
-  campaigns       Campaign[]
+  id                     String                           @id @default(cuid())
+  botId                  String
+  bot                    Bot                              @relation(fields: [botId], references: [id], onDelete: Cascade)
+  content                String?
+  mediaUrl               String?
+  mediaType              MediaType                        @default(NONE)
+  createdAt              DateTime                         @default(now())
+  updatedAt              DateTime                         @updatedAt
+  sourceChatId           String? // برای ذخیره آیدی چت کاربر
+  sourceMessageId        Int?
+  campaigns              Campaign[]
+  notificationTopics     PostNotificationTopic[]
+  notificationDispatches SubscriberNotificationDispatch[]
 }
 
 enum ScheduleType {
@@ -81,22 +86,25 @@ enum ScheduleType {
 }
 
 model Campaign {
-  id            String        @id @default(cuid())
-  botId         String
-  bot           Bot           @relation(fields: [botId], references: [id], onDelete: Cascade)
-  postId        String
-  post          Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
-  chatId        String // Target Group/Channel ID
-  chatTitle     String
-  scheduleType  ScheduleType  @default(INTERVAL)
-  intervalHours Int? // Minimum 24 enforce in app logic
-  specificTimes String[]
-  randomDelay   Boolean       @default(false) // ±30 mins
-  isActive      Boolean       @default(false)
-  nextRun       DateTime
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  history       PostHistory[]
+  id                     String                           @id @default(cuid())
+  botId                  String
+  bot                    Bot                              @relation(fields: [botId], references: [id], onDelete: Cascade)
+  postId                 String
+  post                   Post                             @relation(fields: [postId], references: [id], onDelete: Cascade)
+  chatId                 String // Target Group/Channel ID
+  chatTitle              String
+  scheduleType           ScheduleType                     @default(INTERVAL)
+  intervalHours          Int? // Minimum 24 enforce in app logic
+  specificTimes          String[]
+  randomDelay            Boolean                          @default(false) // ±30 mins
+  isActive               Boolean                          @default(false)
+  nextRun                DateTime
+  createdAt              DateTime                         @default(now())
+  updatedAt              DateTime                         @updatedAt
+  history                PostHistory[]
+  notifySubscribers      Boolean                          @default(false)
+  subscriberAudienceKey  String?
+  notificationDispatches SubscriberNotificationDispatch[]
 }
 
 model PostHistory {
@@ -119,6 +127,113 @@ model ConnectedChat {
   @@unique([botId, chatId]) // جلوگیری از ثبت تکراری یک گروه برای یک ربات
 }
 
+model BotSubscriber {
+  id                String                           @id @default(cuid())
+  botId             String
+  bot               Bot                              @relation(fields: [botId], references: [id], onDelete: Cascade)
+  platformUserId    String
+  privateChatId     String
+  username          String?
+  firstName         String?
+  lastName          String?
+  languageCode      String?
+  status            SubscriberStatus                 @default(ACTIVE)
+  source            String?
+  startParameter    String?
+  firstSeenAt       DateTime                         @default(now())
+  lastSeenAt        DateTime?
+  lastInteractionAt DateTime?
+  createdAt         DateTime                         @default(now())
+  updatedAt         DateTime                         @updatedAt
+  subscriptions     SubscriberTopicSubscription[]
+  dispatches        SubscriberNotificationDispatch[]
+
+  @@unique([botId, platformUserId])
+  @@index([botId])
+  @@index([status])
+  @@index([lastInteractionAt])
+  @@index([botId, status, id])
+}
+
+model NotificationTopic {
+  id            String                        @id @default(cuid())
+  botId         String
+  bot           Bot                           @relation(fields: [botId], references: [id], onDelete: Cascade)
+  name          String
+  slug          String
+  callbackKey   String
+  description   String?
+  isActive      Boolean                       @default(true)
+  sortOrder     Int                           @default(0)
+  createdAt     DateTime                      @default(now())
+  updatedAt     DateTime                      @updatedAt
+  subscriptions SubscriberTopicSubscription[]
+  posts         PostNotificationTopic[]
+
+  @@unique([botId, slug])
+  @@unique([botId, callbackKey])
+  @@index([botId])
+  @@index([isActive])
+  @@index([botId, isActive, sortOrder])
+}
+
+model SubscriberTopicSubscription {
+  id           String            @id @default(cuid())
+  subscriberId String
+  subscriber   BotSubscriber     @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
+  topicId      String
+  topic        NotificationTopic @relation(fields: [topicId], references: [id], onDelete: Restrict)
+  isEnabled    Boolean           @default(true)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@unique([subscriberId, topicId])
+  @@index([topicId])
+  @@index([isEnabled])
+  @@index([topicId, isEnabled, subscriberId])
+}
+
+model PostNotificationTopic {
+  id        String            @id @default(cuid())
+  postId    String
+  post      Post              @relation(fields: [postId], references: [id], onDelete: Cascade)
+  topicId   String
+  topic     NotificationTopic @relation(fields: [topicId], references: [id], onDelete: Restrict)
+  createdAt DateTime          @default(now())
+
+  @@unique([postId, topicId])
+  @@index([topicId])
+}
+
+model SubscriberNotificationDispatch {
+  id            String                     @id @default(cuid())
+  dispatchKey   String                     @unique
+  botId         String
+  bot           Bot                        @relation(fields: [botId], references: [id], onDelete: Cascade)
+  campaignId    String?
+  campaign      Campaign?                  @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  postId        String
+  post          Post                       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  subscriberId  String
+  subscriber    BotSubscriber              @relation(fields: [subscriberId], references: [id], onDelete: Restrict)
+  occurrenceKey String
+  scheduledFor  DateTime?
+  status        NotificationDispatchStatus @default(PENDING)
+  attemptCount  Int                        @default(0)
+  errorLog      String?
+  lastAttemptAt DateTime?
+  sentAt        DateTime?
+  createdAt     DateTime                   @default(now())
+  updatedAt     DateTime                   @updatedAt
+
+  @@index([botId])
+  @@index([campaignId])
+  @@index([postId])
+  @@index([subscriberId])
+  @@index([status])
+  @@index([botId, status, id])
+}
+
 enum Role {
   USER
   ADMIN
@@ -138,4 +253,18 @@ enum MediaType {
 enum SendStatus {
   SUCCESS
   FAILED
+}
+
+enum SubscriberStatus {
+  ACTIVE
+  UNSUBSCRIBED
+  BLOCKED
+}
+
+enum NotificationDispatchStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+  BLOCKED
 }

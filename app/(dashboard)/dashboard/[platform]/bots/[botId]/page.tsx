@@ -6,6 +6,7 @@ import { getSession } from "@/lib/session";
 import {
   Activity,
   ArrowRight,
+  Bell,
   Bot,
   CalendarClock,
   ExternalLink,
@@ -27,6 +28,7 @@ import {
   leaveConnectedChatAction,
   toggleBotStatusAction,
 } from "./actions";
+import { updatePostTopicsAction } from "./notifications/actions";
 
 const tehranDateTime = new Intl.DateTimeFormat("fa-IR", {
   timeZone: "Asia/Tehran",
@@ -63,8 +65,18 @@ export default async function BotWorkspacePage({
       posts: {
         include: {
           _count: { select: { campaigns: true } },
+          notificationTopics: {
+            select: { topicId: true },
+          },
         },
         orderBy: { createdAt: "desc" },
+      },
+      notificationTopics: {
+        where: { isActive: true },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      },
+      _count: {
+        select: { subscribers: true },
       },
       campaigns: {
         include: {
@@ -116,6 +128,17 @@ export default async function BotWorkspacePage({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Button asChild>
+            <Link
+              href={dashboardPath(
+                platformSlug,
+                `bots/${bot.id}/notifications`,
+              )}
+            >
+              <Bell />
+              اعلان‌ها و مخاطبان
+            </Link>
+          </Button>
           <Button asChild variant="outline">
             <a
               href={platformConfig.botUrl(bot.username)}
@@ -225,6 +248,55 @@ export default async function BotWorkspacePage({
                 </p>
 
                 <div className="space-y-3 border-t pt-4">
+                  <form
+                    action={async (formData) => {
+                      "use server";
+                      await updatePostTopicsAction(
+                        platformSlug,
+                        bot.id,
+                        post.id,
+                        formData,
+                      );
+                    }}
+                    className="space-y-2 rounded-xl bg-slate-50 p-3"
+                  >
+                    <p className="text-xs font-bold text-slate-700">
+                      موضوع‌های اعلان این پست
+                    </p>
+                    {bot.notificationTopics.length ? (
+                      <div className="flex flex-wrap gap-2">
+                        {bot.notificationTopics.map((topic) => (
+                          <label
+                            key={topic.id}
+                            className="flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600"
+                          >
+                            <input
+                              type="checkbox"
+                              name="topicId"
+                              value={topic.id}
+                              defaultChecked={post.notificationTopics.some(
+                                (item) => item.topicId === topic.id,
+                              )}
+                            />
+                            {topic.name}
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <Link
+                        href={dashboardPath(
+                          platformSlug,
+                          `bots/${bot.id}/notifications`,
+                        )}
+                        className="text-xs text-primary"
+                      >
+                        ابتدا یک موضوع اعلان بسازید.
+                      </Link>
+                    )}
+                    <Button type="submit" variant="outline" size="sm">
+                      ذخیره موضوع‌ها
+                    </Button>
+                  </form>
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span>
                       {post._count.campaigns.toLocaleString("fa-IR")} کمپین وابسته

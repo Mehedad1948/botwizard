@@ -1,5 +1,6 @@
 // src/lib/telegram/handlers/draft.ts
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { randomUUID } from "node:crypto";
 import prisma from "@/lib/prisma";
 import { calculateNextRunForSpecificTimes } from "@/lib/scheduling";
 import { callTelegramAPI } from "../api";
@@ -47,6 +48,7 @@ export async function handleDraftPost(message: any, bot: Bot) {
           where: { botId: bot.id, chatId: { in: targetGroups } }
         });
         const chatTitleMap = new Map(connectedChats.map(c => [c.chatId, c.chatTitle]));
+        const subscriberAudienceKey = randomUUID();
         // ------------------------------------------------
 
         for (const tId of targetGroups) {
@@ -58,6 +60,7 @@ export async function handleDraftPost(message: any, bot: Bot) {
               chatTitle: chatTitleMap.get(tId) || "گروه ناشناس", // <-- اصلاح شد
               scheduleType: "SPECIFIC_TIMES",
               specificTimes: parsedTimes,
+              subscriberAudienceKey,
               isActive: true,
               nextRun: nextRun,
             }

@@ -143,6 +143,8 @@ instrumentation.ts                   Optional process-wide outbound proxy
 - `/dashboard/:platform/bots` - Adds, lists, and deletes platform bots.
 - `/dashboard/:platform/bots/:botId` - Full bot workspace for status, campaigns, history,
   posts, and connected destinations.
+- `/dashboard/:platform/bots/:botId/notifications` - Bot-scoped notification
+  topics, private subscribers, preference visibility, and dispatch history.
 - `/dashboard/:platform/posts` - Redirects to that platform's campaigns.
 - `/dashboard/:platform/campaigns` - Platform campaign list and controls.
 - `/dashboard/:platform/campaigns/:campaignId` - Campaign details and associated post,
@@ -251,7 +253,10 @@ Before dispatching an update, the route:
 1. Rejects unknown tokens.
 2. Ignores inactive bots.
 3. Extracts the platform sender.
-4. Ignores updates unless the sender equals `Bot.ownerPlatformUserId`.
+4. Routes allowlisted Telegram private subscriber commands and `topic:*`
+   callbacks through the subscriber-preference dispatcher.
+5. Ignores all other updates unless the sender equals
+   `Bot.ownerPlatformUserId`.
 
 Telegram group joins use `my_chat_member`; Bale group joins use
 `message.new_chat_members`. Both are normalized into `ConnectedChat` records
@@ -353,8 +358,23 @@ specific-time configuration, activation, optional random-delay intent, and
 
 ### `PostHistory`
 
-Designed to record campaign send success/failure. No current runtime writes to
-this table.
+Records authenticated manual campaign-send success/failure. A future scheduler
+must also write public scheduled-send outcomes here.
+
+### Subscriber notification models
+
+- `BotSubscriber` stores a private user scoped to one bot. It is created only
+  from explicit private interaction, never from group/channel membership.
+- `NotificationTopic` stores owner-defined, bot-scoped topics with a short
+  callback key.
+- `SubscriberTopicSubscription` stores enabled subscriber preferences.
+- `PostNotificationTopic` attaches topics to posts.
+- `SubscriberNotificationDispatch` is the occurrence-aware idempotency and
+  delivery-history ledger for private sends.
+
+`Campaign.notifySubscribers` enables the additive private delivery phase and
+defaults to false. `Campaign.subscriberAudienceKey` lets sibling single-chat
+campaign rows share one logical subscriber audience.
 
 ### Enums
 
@@ -375,6 +395,16 @@ Required or referenced:
 - `NEXT_PUBLIC_TELEGRAM_CLIENT_ID` - Telegram Web Login/OIDC Client ID
 - `NEXT_PUBLIC_APP_BASE_URL` - Public base URL used to register user-bot webhooks
 - `V2RAY_PROXY` - Optional outbound proxy URL
+- `SUBSCRIBER_NOTIFICATIONS_ENABLED` - Set to `false` to disable private
+  subscriber dispatch while retaining public campaigns.
+- `SUBSCRIBER_NOTIFICATION_BATCH_SIZE` - Matching subscriber page size
+  (default `50`).
+- `SUBSCRIBER_NOTIFICATION_CONCURRENCY` - Concurrent private sends per batch
+  (default `4`).
+- `SUBSCRIBER_NOTIFICATION_RETRY_LIMIT` - Maximum dispatch attempts
+  (default `3`).
+- `SUBSCRIBER_NOTIFICATION_CLAIM_LEASE_MS` - Retry lease duration
+  (default `300000`).
 
 `NEXT_PUBLIC_APP_BASE_URL` falls back to a hard-coded Vercel deployment URL.
 Avoid relying on that fallback in new environments.
@@ -539,6 +569,9 @@ Treat these as known issues, not established design choices:
 
 - The README is still the create-next-app template and is not a project guide.
 - No automated tests exist.
+- Vitest covers focused subscriber-notification parsing, normalization,
+  provider classification, occurrence identities, dispatch keys, and error
+  sanitization. Database-backed integration coverage is still incomplete.
 - No CI configuration exists.
 - No scheduler/deployment configuration exists.
 - Logout is handled through a Server Action that clears OTP/session cookies and redirects to `/login`.
