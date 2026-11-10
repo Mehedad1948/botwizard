@@ -7,6 +7,8 @@ import {
 import prisma from "@/lib/prisma";
 import { callTelegramAPI } from "../api";
 import { getBotPlatformProvider } from "@/services/bot-platforms/provider";
+import { registerWebhook } from "@/services/bots/connection";
+import { describeSchedule } from "@/services/publishing/format";
 
 // تابعی برای پردازش و ثبت توکن (برای جلوگیری از تکرار کد)
 async function processNewBotToken(chatId: string, telegramId: string, userToken: string, mainBotToken: string) {
@@ -21,11 +23,7 @@ async function processNewBotToken(chatId: string, telegramId: string, userToken:
     const user = await prisma.user.findUnique({ where: { telegramId } });
     if (!user) throw new Error("ابتدا دستور /start را ارسال کنید.");
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_BASE_URL?.replace(/\/$/, "") || "https://botwizard-oesj.vercel.app";
-    const webhookUrl = `${baseUrl}/api/bots/webhook/telegram/${userToken}`;
-    await provider.setWebhook(userToken, webhookUrl);
-
-    await prisma.bot.upsert({
+    const savedBot = await prisma.bot.upsert({
       where: {
         platform_token: {
           platform: "TELEGRAM",
@@ -47,6 +45,7 @@ async function processNewBotToken(chatId: string, telegramId: string, userToken:
         isActive: true,
       },
     });
+    await registerWebhook(savedBot);
 
     const successText = `✅ **ربات شما (@${botInfo.username}) با موفقیت متصل شد!**\n\nمراحل بعدی:\n۱. وارد ربات خودتان شوید.\n۲. دستور /start را ارسال کنید.\n۳. ربات را در گروه‌های هدف خود ادمین کنید.`;
     
@@ -408,10 +407,15 @@ export async function handleMainBotCallback(callback_query: any, mainBotToken: s
   // مشاهده کمپین‌های یک ربات خاص
   if (data.startsWith("main_botcamps_")) {
     const botId = data.replace("main_botcamps_", "");
-    const campaigns = await prisma.campaign.findMany({ where: { botId, isActive: true } });
-    
+    const campaigns = await prisma.campaign.findMany({
+      where: { botId, status: "ACTIVE", bot: { user: { telegramId } } },
+      include: { _count: { select: { targets: true } } },
+    });
+
     let text = `تعداد کمپین‌های فعال این ربات: ${campaigns.length}\n\n`;
-    campaigns.forEach((c, idx) => { text += `${idx + 1}. گروه: ${c.chatTitle || 'ناشناس'} | هر ${c.intervalHours} ساعت\n`; });
+    campaigns.forEach((c, idx) => {
+      text += `${idx + 1}. ${describeSchedule(c)} | ${c._count.targets} مقصد\n`;
+    });
 
     const keyboard = [[{ text: "🔙 بازگشت به منوی ربات", callback_data: `main_botmenu_${botId}` }]];
     await callTelegramAPI("editMessageText", {

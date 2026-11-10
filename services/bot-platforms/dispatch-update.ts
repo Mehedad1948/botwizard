@@ -1,153 +1,117 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import type { Bot } from "@prisma/client";
 
 import prisma from "@/lib/prisma";
-import { callTelegramAPI } from "@/lib/telegram/api";
-import { handleCallbackQuery } from "@/lib/telegram/handlers/callback";
-import { handleCampaignsCommand } from "@/lib/telegram/handlers/campaigns";
-import { handleDraftPost } from "@/lib/telegram/handlers/draft";
-import {
-  handleGroupAddition,
-  handleNewChatMembers,
-} from "@/lib/telegram/handlers/group";
 import type { BotPlatformValue } from "@/services/bot-platforms/config";
 import { runWithBotPlatform } from "@/services/bot-platforms/context";
 import { verifyPairingCode } from "@/services/bot-platforms/pairing";
+import { getBotPlatformProvider } from "@/services/bot-platforms/provider";
 import { handleTelegramSubscriberUpdate } from "@/services/audience-notifications/webhook";
+import {
+  handleOwnerCallback,
+  handleOwnerMessage,
+} from "@/services/owner-bot/handler";
+import {
+  applyMembershipUpdate,
+  applyServiceMessage,
+  membershipNotice,
+  type MembershipChange,
+} from "@/services/publishing/destinations";
 
-export async function dispatchUserBotUpdate(
-  platform: BotPlatformValue,
-  receivedToken: string,
-  update: any,
-) {
-  const bot = await prisma.bot.findFirst({
-    where: { platform, token: receivedToken },
-    include: { user: true },
+export type DispatchResult = { ok: boolean; status: number; error?: string };
+
+function senderOf(update: any): string | undefined {
+  return (
+    update.message?.from?.id ??
+    update.callback_query?.from?.id ??
+    update.my_chat_member?.from?.id
+  )?.toString();
+}
+
+async function notifyOwner(bot: Bot, change: MembershipChange | null) {
+  if (!change || !bot.ownerPlatformUserId) return;
+  await getBotPlatformProvider(bot.platform).call(bot.token, "sendMessage", {
+    chat_id: bot.ownerPlatformUserId,
+    text: membershipNotice(change),
   });
+}
 
-  if (!bot) return { ok: false, status: 404, error: "Bot not found" };
+/** Routes one platform update for a user-owned bot. */
+export async function dispatchBotUpdate(bot: Bot, update: any): Promise<DispatchResult> {
   if (!bot.isActive) return { ok: true, status: 200 };
 
-  return runWithBotPlatform(platform, async () => {
-    const senderId = (
-      update.message?.from?.id ??
-      update.callback_query?.from?.id ??
-      update.my_chat_member?.from?.id
-    )?.toString();
+  return runWithBotPlatform(bot.platform, async () => {
+    // Membership changes apply even when someone else removes the bot.
+    if (update.my_chat_member) {
+      await notifyOwner(bot, await applyMembershipUpdate(bot, update.my_chat_member));
+      return { ok: true, status: 200 };
+    }
+    if (update.message && update.message.chat?.type !== "private") {
+      await notifyOwner(bot, await applyServiceMessage(bot, update.message));
+      return { ok: true, status: 200 };
+    }
+    if (!update.message && !update.callback_query) {
+      return { ok: true, status: 200 };
+    }
 
+    const senderId = senderOf(update);
     if (!bot.ownerPlatformUserId) {
       await handleOwnerPairing(update, senderId, bot);
       return { ok: true, status: 200 };
     }
 
-    if (
-      senderId &&
-      senderId !== bot.ownerPlatformUserId &&
-      (await handleTelegramSubscriberUpdate(update, bot))
-    ) {
+    if (senderId !== bot.ownerPlatformUserId) {
+      if (senderId) await handleTelegramSubscriberUpdate(update, bot);
       return { ok: true, status: 200 };
     }
 
-    if (!senderId || senderId !== bot.ownerPlatformUserId) {
-      return { ok: true, status: 200 };
+    if (update.callback_query) {
+      await handleOwnerCallback(bot, update.callback_query);
+    } else {
+      await handleOwnerMessage(bot, update.message);
     }
-
-    if (update.my_chat_member) {
-      await handleGroupAddition(update.my_chat_member, bot);
-      return { ok: true, status: 200 };
-    }
-
-    if (update.message?.new_chat_members) {
-      await handleNewChatMembers(update.message, bot);
-      return { ok: true, status: 200 };
-    }
-
-    if (update.message) {
-      const text = update.message.text;
-
-      if (text === "/start") {
-        await callTelegramAPI(
-          "sendMessage",
-          {
-            chat_id: update.message.chat.id,
-            text: "🤖 **به پنل مدیریت ربات خود خوش آمدید.**\n\nلطفاً یکی از گزینه‌های زیر را انتخاب کنید:",
-            parse_mode: "Markdown",
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  {
-                    text: "📝 ایجاد پست جدید",
-                    callback_data: "menu_new_post",
-                  },
-                ],
-                [
-                  {
-                    text: "📊 مدیریت کمپین‌ها",
-                    callback_data: "menu_campaigns",
-                  },
-                ],
-                [
-                  {
-                    text: "👥 مدیریت گروه‌ها",
-                    callback_data: "menu_groups",
-                  },
-                ],
-                [
-                  {
-                    text: "📖 آموزش استفاده",
-                    callback_data: "menu_help",
-                  },
-                ],
-              ],
-            },
-          },
-          bot.token,
-        );
-      } else if (text?.startsWith("/campaigns")) {
-        await handleCampaignsCommand(update.message, bot);
-      } else {
-        await handleDraftPost(update.message, bot);
-      }
-    } else if (update.callback_query) {
-      await handleCallbackQuery(update.callback_query, bot);
-    }
-
     return { ok: true, status: 200 };
   });
+}
+
+/** Legacy webhook URLs identify the bot by platform and token. */
+export async function dispatchUserBotUpdate(
+  platform: BotPlatformValue,
+  receivedToken: string,
+  update: any,
+): Promise<DispatchResult> {
+  const bot = await prisma.bot.findFirst({
+    where: { platform, token: receivedToken },
+  });
+  if (!bot) return { ok: false, status: 404, error: "Bot not found" };
+  return dispatchBotUpdate(bot, update);
 }
 
 async function handleOwnerPairing(
   update: any,
   senderId: string | undefined,
-  bot: {
-    id: string;
-    token: string;
-    connectionCodeHash: string | null;
-    connectionCodeExpiresAt: Date | null;
-  },
+  bot: Bot,
 ) {
   const message = update.message;
+  if (message?.chat?.type !== "private") return;
   const text = message?.text?.trim() ?? "";
-  const match = text.match(/^\/connect\s+([A-Fa-f0-9]{8})$/);
+  const match =
+    text.match(/^\/connect\s+([A-Fa-f0-9]{8})$/) ??
+    text.match(/^\/start\s+pair_([A-Fa-f0-9]{8})$/);
+  const provider = getBotPlatformProvider(bot.platform);
 
   if (
     !senderId ||
-    message?.chat?.type !== "private" ||
     !match ||
     !bot.connectionCodeHash ||
     !bot.connectionCodeExpiresAt ||
     bot.connectionCodeExpiresAt.getTime() < Date.now() ||
     !verifyPairingCode(match[1], bot.connectionCodeHash)
   ) {
-    if (message?.chat?.type === "private") {
-      await callTelegramAPI(
-        "sendMessage",
-        {
-          chat_id: message.chat.id,
-          text: "برای اتصال امن این ربات، دستور اتصال نمایش‌داده‌شده در داشبورد را ارسال کنید.",
-        },
-        bot.token,
-      );
-    }
+    await provider.call(bot.token, "sendMessage", {
+      chat_id: message.chat.id,
+      text: "این ربات هنوز به حساب مالک متصل نشده است. برای اتصال، دستور نمایش‌داده‌شده در داشبورد را ارسال کنید.",
+    });
     return;
   }
 
@@ -160,12 +124,8 @@ async function handleOwnerPairing(
     },
   });
 
-  await callTelegramAPI(
-    "sendMessage",
-    {
-      chat_id: message.chat.id,
-      text: "✅ حساب شما با موفقیت به ربات متصل شد. اکنون دستور /start را ارسال کنید.",
-    },
-    bot.token,
-  );
+  await provider.call(bot.token, "sendMessage", {
+    chat_id: message.chat.id,
+    text: "✅ حساب شما به‌عنوان مالک به ربات متصل شد.\nحالا ربات را به کانال یا گروه خود اضافه کنید و برای مدیریت /start را بفرستید.",
+  });
 }

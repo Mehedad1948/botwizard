@@ -1,34 +1,25 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
+
 import prisma from "@/lib/prisma";
-import { getSession } from "@/lib/session";
 import {
   dashboardPath,
   platformConfigs,
-  platformFromSlug,
   type PlatformSlug,
 } from "@/services/bot-platforms/config";
 import { getBotPlatformProviderBySlug } from "@/services/bot-platforms/provider";
-import { revalidatePath } from "next/cache";
+import { registerWebhook } from "@/services/bots/connection";
+import { findActionBot } from "@/services/dashboard/access";
+import {
+  checkDestination,
+  DESTINATION_STATUS_LABELS,
+} from "@/services/publishing/destinations";
 
 type ActionResult = {
   success?: boolean;
   error?: string;
 };
-
-async function getOwnedBot(platform: PlatformSlug, botId: string) {
-  const session = await getSession();
-  if (!session?.userId) return null;
-
-  return prisma.bot.findFirst({
-    where: {
-      id: botId,
-      userId: session.userId,
-      platform: platformFromSlug(platform),
-    },
-    select: { id: true, token: true, isActive: true },
-  });
-}
 
 function revalidateBotPages(platform: PlatformSlug, botId: string) {
   revalidatePath(dashboardPath(platform));
@@ -41,7 +32,7 @@ export async function toggleBotStatusAction(
   platform: PlatformSlug,
   botId: string,
 ): Promise<ActionResult> {
-  const bot = await getOwnedBot(platform, botId);
+  const bot = await findActionBot(platform, botId);
   if (!bot) return { error: "ربات یافت نشد یا به آن دسترسی ندارید." };
 
   await prisma.bot.update({
@@ -53,20 +44,45 @@ export async function toggleBotStatusAction(
   return { success: true };
 }
 
-export async function deletePostAction(
+export async function repairConnectionAction(
   platform: PlatformSlug,
   botId: string,
-  postId: string,
 ): Promise<ActionResult> {
-  const bot = await getOwnedBot(platform, botId);
+  const bot = await findActionBot(platform, botId);
   if (!bot) return { error: "ربات یافت نشد یا به آن دسترسی ندارید." };
 
-  const deleted = await prisma.post.deleteMany({
-    where: { id: postId, botId: bot.id },
-  });
-  if (deleted.count !== 1) return { error: "پست موردنظر یافت نشد." };
+  try {
+    await registerWebhook(bot);
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "اتصال ربات دوباره برقرار نشد.",
+    };
+  }
 
   revalidateBotPages(platform, botId);
+  return { success: true };
+}
+
+export async function checkDestinationAction(
+  platform: PlatformSlug,
+  botId: string,
+  destinationId: string,
+): Promise<ActionResult> {
+  const bot = await findActionBot(platform, botId);
+  if (!bot) return { error: "ربات یافت نشد یا به آن دسترسی ندارید." };
+
+  const checked = await checkDestination(bot, destinationId);
+  revalidateBotPages(platform, botId);
+  if (!checked) return { error: "مقصد پیدا نشد." };
+  if (checked.checkFailed) {
+    return { error: "ارتباط با پیام‌رسان برقرار نشد؛ کمی بعد دوباره امتحان کنید." };
+  }
+  if (checked.status !== "ACTIVE") {
+    return { error: `وضعیت: ${DESTINATION_STATUS_LABELS[checked.status]}` };
+  }
   return { success: true };
 }
 
@@ -75,34 +91,31 @@ export async function leaveConnectedChatAction(
   botId: string,
   connectedChatId: string,
 ): Promise<ActionResult> {
-  const bot = await getOwnedBot(platform, botId);
+  const bot = await findActionBot(platform, botId);
   if (!bot) return { error: "ربات یافت نشد یا به آن دسترسی ندارید." };
 
-  const connectedChat = await prisma.connectedChat.findFirst({
+  const destination = await prisma.connectedChat.findFirst({
     where: { id: connectedChatId, botId: bot.id },
   });
-  if (!connectedChat) return { error: "مقصد موردنظر یافت نشد." };
+  if (!destination) return { error: "مقصد موردنظر یافت نشد." };
 
-  const result = await getBotPlatformProviderBySlug(platform).call(
-    bot.token,
-    "leaveChat",
-    { chat_id: connectedChat.chatId },
-  );
-  if (!result.ok) {
-    return {
-      error:
-        result.description ||
-        `${platformConfigs[platform].labelFa} اجازه خروج ربات از این مقصد را نداد.`,
-    };
+  if (destination.status !== "REMOVED") {
+    const result = await getBotPlatformProviderBySlug(platform).call(
+      bot.token,
+      "leaveChat",
+      { chat_id: destination.chatId },
+    );
+    if (!result.ok && !/not found|not a member|kicked/i.test(result.description ?? "")) {
+      return {
+        error:
+          result.description ||
+          `${platformConfigs[platform].labelFa} اجازه خروج ربات از این مقصد را نداد.`,
+      };
+    }
   }
 
-  await prisma.$transaction([
-    prisma.connectedChat.delete({ where: { id: connectedChat.id } }),
-    prisma.campaign.updateMany({
-      where: { botId: bot.id, chatId: connectedChat.chatId },
-      data: { isActive: false },
-    }),
-  ]);
+  // Deleting the destination drops it from campaign targets; history keeps a snapshot.
+  await prisma.connectedChat.delete({ where: { id: destination.id } });
 
   revalidateBotPages(platform, botId);
   return { success: true };

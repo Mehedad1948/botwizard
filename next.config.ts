@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  experimental: {
+    serverActions: {
+      // Dashboard media uploads (Vercel still caps request bodies at 4.5 MB).
+      bodySizeLimit: "20mb",
+    },
+  },
   async headers() {
     return [
       {

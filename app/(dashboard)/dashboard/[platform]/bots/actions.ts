@@ -15,6 +15,7 @@ import {
 } from "@/services/bot-platforms/pairing";
 import { getBotPlatformProviderBySlug } from "@/services/bot-platforms/provider";
 import { revalidatePath } from "next/cache";
+import { appBaseUrl, registerWebhook } from "@/services/bots/connection";
 
 export async function addBotAction(
   platform: PlatformSlug,
@@ -48,12 +49,7 @@ export async function addBotAction(
         select: { telegramId: true },
       }),
     ]);
-    const baseUrl = process.env.NEXT_PUBLIC_APP_BASE_URL?.replace(/\/$/, "");
-    if (!baseUrl) {
-      throw new Error(
-        "آدرس عمومی سامانه برای ثبت وب‌هوک تنظیم نشده است.",
-      );
-    }
+    appBaseUrl();
 
     const pairingCode =
       platformValue === "BALE" ? generatePairingCode() : null;
@@ -77,10 +73,7 @@ export async function addBotAction(
     });
 
     try {
-      await provider.setWebhook(
-        token,
-        `${baseUrl}/api/bots/webhook/${platform}/${token}`,
-      );
+      await registerWebhook({ id: createdBot.id, token, platform: platformValue });
     } catch (error) {
       await prisma.bot.delete({ where: { id: createdBot.id } });
       throw error;
@@ -90,6 +83,7 @@ export async function addBotAction(
     revalidatePath(dashboardPath(platform));
     return {
       success: true,
+      botId: createdBot.id,
       pairingCommand: pairingCode ? `/connect ${pairingCode}` : undefined,
     };
   } catch (error) {
@@ -144,15 +138,12 @@ export async function createPairingCodeAction(
 ) {
   const session = await getSession();
   if (!session?.userId) return { error: "ابتدا وارد حساب خود شوید." };
-  if (platform !== "bale") {
-    return { error: "کد اتصال فقط برای ربات‌های بله لازم است." };
-  }
 
   const bot = await prisma.bot.findFirst({
     where: {
       id: botId,
       userId: session.userId,
-      platform: "BALE",
+      platform: platformFromSlug(platform),
     },
     select: { id: true },
   });

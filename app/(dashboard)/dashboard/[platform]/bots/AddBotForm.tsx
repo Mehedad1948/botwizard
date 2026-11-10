@@ -5,13 +5,18 @@ import { Input } from "@/components/ui/input";
 import { Bot, Loader2 } from "lucide-react";
 import { FormEvent, useRef, useState, useTransition } from "react";
 import { addBotAction } from "./actions";
-import type { PlatformSlug } from "@/services/bot-platforms/config";
+import Link from "next/link";
+import {
+  dashboardPath,
+  type PlatformSlug,
+} from "@/services/bot-platforms/config";
 
 export function AddBotForm({ platform }: { platform: PlatformSlug }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [botId, setBotId] = useState("");
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -28,10 +33,11 @@ export function AddBotForm({ platform }: { platform: PlatformSlug }) {
       }
 
       formRef.current?.reset();
+      setBotId(result.botId ?? "");
       setSuccess(
         result.pairingCommand
           ? `ربات ثبت شد. برای اتصال مالک، این دستور را در گفت‌وگوی خصوصی ربات بفرستید: ${result.pairingCommand}`
-          : "ربات با موفقیت ثبت و وب‌هوک آن فعال شد.",
+          : "ربات ثبت و متصل شد. حالا آن را به کانال یا گروه خود اضافه کنید.",
       );
     });
   };
@@ -73,6 +79,14 @@ export function AddBotForm({ platform }: { platform: PlatformSlug }) {
       {success && (
         <p className="w-full rounded-xl bg-emerald-50 p-3 text-xs leading-6 text-emerald-700">
           {success}
+          {botId && (
+            <Link
+              href={dashboardPath(platform, `bots/${botId}`)}
+              className="mr-2 font-bold underline"
+            >
+              ادامه راه‌اندازی ربات
+            </Link>
+          )}
         </p>
       )}
     </form>

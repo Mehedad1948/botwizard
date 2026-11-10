@@ -1,6 +1,6 @@
 # BotWizard Project Context
 
-Last reviewed: 2026-06-10
+Last reviewed: 2026-11-10
 
 This file is the onboarding reference for coding agents and contributors. It
 describes the repository as it currently exists, including incomplete features
@@ -21,10 +21,11 @@ There are two user interfaces:
    - The Telegram main bot registers users and connects Telegram bot tokens.
    - Connected Telegram and Bale bots manage drafts, destinations, and campaigns.
 
-Important current-state distinction: campaign records can be created and
-managed, but this repository contains no scheduler, queue, cron route, or
-background worker that processes due campaigns. Scheduled delivery is therefore
-not operational from this codebase alone.
+Scheduled delivery runs through `POST|GET /api/cron/tick` (protected by
+`CRON_SECRET`), which must be called every minute by a platform cron
+(`vercel.json`) or `npm run scheduler`. Without a caller nothing is sent.
+The rebuild plan and product decisions live in `docs/REFACTOR_PLAN.md`; the
+active OpenSpec change is `openspec/changes/rebuild-publishing-engine`.
 
 ## Technology Stack
 
@@ -91,7 +92,9 @@ app/
     telegram/webhook/[token]/route.ts
                                        Legacy Telegram dispatcher
     bots/webhook/[platform]/[token]/route.ts
-                                       Platform-neutral bot dispatcher
+                                       Legacy token-in-URL bot dispatcher
+    bots/hook/[webhookId]/route.ts   Opaque, secret-verified bot webhook
+    cron/tick/route.ts               Scheduler entry point
 
 lib/
   prisma/index.ts                    Prisma singleton
@@ -101,13 +104,20 @@ lib/
     api.ts                           Generic Telegram API caller
     handlers/
       main.ts                        Main bot registration and management
-      callback.ts                    User-bot inline-button state machine
-      draft.ts                       Draft capture and specific-time setup
-      group.ts                       Connected chat registration
-      chats.ts                       Connected-chat menu
-      campaigns.ts                   Campaign menu
 
 services/
+  publishing/
+    schedule.ts                      Pure schedule maths (next occurrence, validation)
+    scheduler.ts                     Occurrence materialisation, delivery queue, send-now
+    campaigns.ts                     Bot-scoped campaign operations
+    content.ts                       Post capture from messages and send strategy
+    posts.ts                         Dashboard post create/edit/upload/archive
+    destinations.ts                  Membership updates and destination health
+    errors.ts                        Delivery error classification (Persian messages)
+    format.ts                        Persian schedule/date formatting
+  owner-bot/                         Owner admin conversation (state + handler)
+  bots/connection.ts                 Webhook registration, secret check, status
+  dashboard/                         Page/action ownership helpers and loaders
   bot-platforms/
     config.ts                        Platform metadata and route helpers
     provider.ts                      Telegram/Bale HTTP API adapters
@@ -145,10 +155,12 @@ instrumentation.ts                   Optional process-wide outbound proxy
   posts, and connected destinations.
 - `/dashboard/:platform/bots/:botId/notifications` - Bot-scoped notification
   topics, private subscribers, preference visibility, and dispatch history.
-- `/dashboard/:platform/posts` - Redirects to that platform's campaigns.
-- `/dashboard/:platform/campaigns` - Platform campaign list and controls.
-- `/dashboard/:platform/campaigns/:campaignId` - Campaign details and associated post,
-  recent history, immediate send, and new scheduling actions.
+- `/dashboard/:platform/posts` - Post library (filter by bot, archive);
+  `/posts/new` composer with media upload; `/posts/:postId` edit + topics.
+- `/dashboard/:platform/campaigns` - Campaign list filtered by status.
+- `/dashboard/:platform/campaigns/new` - Wizard: post, destinations, schedule.
+- `/dashboard/:platform/campaigns/:campaignId` - Schedule, upcoming runs,
+  delivery log per run, edit form, destinations, subscriber notifications.
 - Legacy unscoped dashboard routes redirect to the Telegram segment.
 
 The login footer links to `/policy`, but no policy route exists.
@@ -161,7 +173,9 @@ The login footer links to `/policy`, but no policy route exists.
 - `GET /api/auth/telegram-link`
 - `POST /api/telegram/webhook`
 - `POST /api/telegram/webhook/:token`
-- `POST /api/bots/webhook/:platform/:token`
+- `POST /api/bots/webhook/:platform/:token` (legacy)
+- `POST /api/bots/hook/:webhookId`
+- `GET|POST /api/cron/tick`
 
 The root Telegram webhook is for the main login bot. New user-bot registrations
 point to the platform-neutral route. The dynamic Telegram route remains for
@@ -245,70 +259,50 @@ The main bot token is `TELEGRAM_LOGIN_BOT_TOKEN`.
 
 ### User-owned bots
 
-New user bots share `/api/bots/webhook/:platform/:token`. Platform and token
-together identify the `Bot` record.
+New bots are registered on `/api/bots/hook/:webhookId` (random id) with a
+Telegram `secret_token` that the route verifies in constant time. Bale gets no
+secret (support unverified). Bots registered before this change still use the
+legacy `/api/bots/webhook/:platform/:token` URL until the owner presses
+"اتصال دوباره" on the bot page, which rotates the webhook id and secret.
 
-Before dispatching an update, the route:
+`services/bot-platforms/dispatch-update.ts` routes each update:
 
-1. Rejects unknown tokens.
-2. Ignores inactive bots.
-3. Extracts the platform sender.
-4. Routes allowlisted Telegram private subscriber commands and `topic:*`
-   callbacks through the subscriber-preference dispatcher.
-5. Ignores all other updates unless the sender equals
-   `Bot.ownerPlatformUserId`.
+1. Inactive bots are ignored.
+2. `my_chat_member` (Telegram) and group service messages (Bale joins/leaves,
+   supergroup migration) update destinations. Only the owner can *add* a
+   destination; removals and permission changes apply from anyone. The owner
+   gets a private notice.
+3. Bots without an owner accept only `/connect CODE` or `/start pair_CODE`.
+4. Non-owner private messages go to the Telegram subscriber-preference flow.
+5. Owner messages and callbacks go to `services/owner-bot/handler.ts`.
 
-Telegram group joins use `my_chat_member`; Bale group joins use
-`message.new_chat_members`. Both are normalized into `ConnectedChat` records
-and remain owner-authorized.
+Owner conversation: `/start`, `/admin` or `/menu` open the menu; any other
+private content (text, photo, video, animation, audio, document) is captured
+as a post with `file_id`, caption and entities. Multi-step state lives in
+`BotConversation` (24h TTL); callback data is `<scope>:<action>:<id>[:<arg>]`
+and always < 64 bytes. Every callback re-checks `botId`. Typed schedule times
+accept Persian digits. `/cancel` clears a pending question.
 
-Telegram bots inherit the linked Telegram ID as their platform owner. Bale IDs
-are separate, so adding a Bale bot creates a hashed, 30-minute one-time code.
-The owner sends `/connect CODE` privately to bind their Bale ID. The dashboard
-can regenerate an expired code.
+### Publishing model and delivery
 
-Update dispatch:
-
-- `/start` sends the user-bot management menu.
-- `/campaigns` renders campaigns.
-- Other private messages are treated as draft posts.
-- Platform-specific membership updates upsert `ConnectedChat`.
-- Callback queries enter the large inline-button workflow in `callback.ts`.
-
-### Draft and immediate-send flow
-
-1. The owner sends text or media to a user bot in a private chat.
-2. `handleDraftPost` creates a `Post` with source chat/message IDs.
-3. The bot offers immediate send, scheduling, or cancel.
-4. Destination chats come from `ConnectedChat`.
-5. Immediate delivery uses Telegram `copyMessage` from the owner's private
-   message to each selected chat.
-
-Media metadata is not populated during Telegram draft capture. The database
-record stores a text/caption preview and source message identity; actual
-immediate delivery relies on `copyMessage`.
-
-### Campaign creation flow
-
-Each target chat receives a separate `Campaign` row.
-
-Supported schedule records:
-
-- `INTERVAL`: selected interval and computed `nextRun`.
-- `SPECIFIC_TIMES`: an array of `HH:MM` strings and the nearest `nextRun`.
-
-Campaigns can be created from:
-
-- Telegram inline-button workflows.
-- The web posts page, using a manually entered chat ID and interval.
-
-The Telegram callback payload encodes selected chat IDs and truncates strings to
-Telegram's 64-byte callback-data limit. Selecting many chats can silently
-truncate IDs and corrupt the workflow.
-
-Campaign creation sometimes finds the latest post for the bot rather than the
-post identified by the callback draft ID. Concurrent drafts can therefore bind
-a campaign to the wrong post.
+- A `Campaign` publishes one `Post` to many destinations via `CampaignTarget`.
+- Schedules: `ONCE`, `INTERVAL` (≥ 60 min, anchored at `startsAt`), `DAILY`
+  (times), `WEEKLY` (weekdays 0=Sunday + times), all in `timezone`
+  (default Asia/Tehran), with optional `endsAt`, `maxRuns`, `jitterMinutes`.
+- The tick locks due campaigns (`FOR UPDATE SKIP LOCKED`), creates one
+  `Delivery` per target and occurrence (unique key prevents duplicates),
+  advances `nextRun` from `max(now, occurrence)` so outages produce one
+  catch-up run, and marks finished campaigns `COMPLETED`.
+- Deliveries are the queue: claimed with `SKIP LOCKED`, leased for 5 minutes,
+  retried with backoff for `RATE_LIMITED`/`TRANSIENT` (max 5 attempts),
+  failed immediately otherwise. `NO_PERMISSION`/`REMOVED` errors update the
+  destination's health; non-active destinations are skipped.
+- Send strategy: stored `mediaFileId`/entities first; legacy posts use
+  `copyMessage` and fall back to stored text if the source message is gone.
+- "Send now" (dashboard and bot) creates a completed `ONCE` campaign and runs
+  the same delivery path synchronously.
+- Subscriber notifications run once per occurrence with audience key
+  `campaign:<id>`.
 
 ## Data Model
 
@@ -341,25 +335,32 @@ Deleting a bot cascades to its related records.
 
 ### `Post`
 
-Saved content associated with one bot.
+Content owned by one bot: optional title, text/caption, Telegram entities
+(non-null means "send from stored data"), media type and platform `file_id`,
+URL buttons (`[[{text,url}]]`), source chat/message ids for provenance, and
+`archivedAt`. Archiving pauses its active campaigns.
 
-It can hold text, media URL/type, and platform source chat/message IDs.
-Bot-created posts currently rely primarily on source IDs.
+### `ConnectedChat` (destination)
 
-### `ConnectedChat`
+A group/channel of one bot, unique by `(botId, chatId)`, with `chatType`,
+`status` (`ACTIVE`, `NO_PERMISSION`, `REMOVED`), `statusReason`,
+`lastCheckedAt`.
 
-A known target group/channel for one bot. Uniqueness is `(botId, chatId)`.
+### `Campaign`, `CampaignTarget`
 
-### `Campaign`
+See "Publishing model and delivery". Status is `ACTIVE`, `PAUSED` or
+`COMPLETED`; `nextRun` is null once completed.
 
-Joins a post and bot to one target chat and one schedule. It stores interval or
-specific-time configuration, activation, optional random-delay intent, and
-`nextRun`.
+### `Delivery`
 
-### `PostHistory`
+One send of one campaign occurrence to one destination (title snapshot kept),
+with trigger (`SCHEDULED`/`MANUAL`), status (`PENDING`, `SENDING`, `SENT`,
+`FAILED`, `SKIPPED`), attempts, error kind and sanitized detail. Replaces the
+former `PostHistory` table.
 
-Records authenticated manual campaign-send success/failure. A future scheduler
-must also write public scheduled-send outcomes here.
+### `BotConversation`
+
+Short-lived owner-bot conversation state keyed by an opaque id.
 
 ### Subscriber notification models
 
@@ -389,6 +390,7 @@ campaign rows share one logical subscriber audience.
 Required or referenced:
 
 - `DATABASE_URL` - PostgreSQL connection string
+- `CRON_SECRET` - Bearer secret for `/api/cron/tick` (Vercel Cron sends it)
 - `SESSION_SECRET` - HS256 session signing secret
 - `TELEGRAM_LOGIN_BOT_TOKEN` - Main/platform bot token
 - `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME` - Main bot link on the login page
@@ -458,18 +460,28 @@ There is no test script or test suite.
 - The hero markup is isolated in `components/landing/LandingHero.tsx` and stays
   sticky while the white content surface scrolls over it.
 - Subsequent landing content uses the compound Server Component API
-  `PageSection`, `PageSection.Image`, and `PageSection.Content`. Its reveal
-  effects use CSS view timelines, and each viewport-height section sticks and
-  is covered by the next square-cornered section without a broad section
-  shadow. Each section has extra scroll track after becoming fully visible so
-  readers have a pause before the next sheet arrives. Unsupported browsers
-  receive a fully visible static layout, and motion is disabled for
-  `prefers-reduced-motion`. Each section clips horizontal overflow so the
-  left/right entrance transforms cannot widen the page or create an x-axis
-  scrollbar; vertical overflow remains available for sticky positioning. The
-  document and landing root also use `overflow-x: clip` and explicit full-width
-  constraints to prevent transformed visual bounds from becoming root-level
-  horizontal scroll overflow in RTL browsers.
+  `PageSection`, `PageSection.Image`, and `PageSection.Content`. On viewports
+  at least `64rem` wide and `40rem` tall, every section is a full-viewport
+  sticky sibling inside the `.landing-content-surface` grid, so later sheets
+  slide over earlier ones. The sheets have rounded top corners that square off
+  as each sheet lands, and they cast a soft shade on what they cover. Each
+  sheet's bottom margin (`--landing-section-pause`) is a reading pause; the
+  last sheet's pause comes from a trailing `::after` spacer, because a sticky
+  element's own margin counts against its containing block. The hero card
+  recedes slightly (`scroll(root)` timeline) as the first sheet covers it.
+  Smaller or shorter viewports use normal flow so tall content is never hidden
+  behind a pinned sheet; there only the surface itself is the rounded sheet.
+  Reveals and these effects use CSS scroll/view timelines, unsupported
+  browsers get a static layout, and motion is disabled for
+  `prefers-reduced-motion`. Sections clip horizontal overflow, and the
+  document and landing root use `overflow-x: clip`, so entrance transforms
+  never create an x-axis scrollbar in RTL browsers. `#features` targets the
+  section stack. The root `<html>` sets `data-scroll-behavior="smooth"` (the
+  Next 16 opt-in), and smooth scrolling applies only without reduced motion.
+- `/login` is a Server Component page that redirects signed-in users to
+  `/dashboard` and renders `components/auth/LoginPageClient.tsx` inside a
+  Suspense boundary (it reads search params). It uses a framed split layout:
+  the form on one side and, on `lg`+, a dark brand panel.
 - shadcn aliases use `@/components`, `@/components/ui`, and `@/lib`.
 - UI components are a mix of Server Components and small Client Components.
 - Most user-facing copy is Persian.
@@ -521,12 +533,14 @@ There is no test script or test suite.
 
 Treat these as known issues, not established design choices:
 
-1. Scheduled execution is absent.
+1. Scheduled execution depends on an external per-minute caller of
+   `/api/cron/tick`. Vercel Hobby crons run at most daily; use Pro, an
+   external scheduler, or `npm run scheduler` on a server.
 2. The Telegram main bot remains the only account registration conversation;
    Bale ownership is bot-scoped through one-time pairing rather than a Bale
    account login flow.
-3. User bot tokens are embedded directly in webhook URLs and stored plaintext.
-   No provider webhook secret header is configured or verified.
+3. User bot tokens are stored plaintext. Bots not yet re-registered still have
+   the token in their legacy webhook URL; Bale webhooks carry no secret.
 4. Provider calls normalize failed responses to `ok: false`; conversation
    handlers still must inspect responses where delivery success matters.
 5. OTP and one-time login protection is application-level and not a substitute
@@ -555,28 +569,29 @@ Treat these as known issues, not established design choices:
   Telegram interactions.
 - Treat all Telegram API calls as untrusted network operations and inspect both
   HTTP status and Telegram's `ok` field.
-- Use database transactions when one logical action creates multiple campaign
-  rows.
-- Define timezone behavior before implementing the scheduler.
-- If implementing scheduled delivery, use `Post.sourceChatId` and
-  `Post.sourceMessageId` with `copyMessage`, update `nextRun` atomically, and
-  write `PostHistory`.
-- Add idempotency/locking before running scheduler work concurrently.
+- Send every post through `services/publishing/content.ts#sendPost` and every
+  campaign run through `services/publishing/scheduler.ts`; do not call
+  `copyMessage`/`sendMessage` for campaigns elsewhere.
+- Campaign service functions take an already-authorised `botId` and filter by
+  it; dashboard actions resolve it with `services/dashboard/access.ts`.
 - Update this document when routes, environment variables, core flows, or
   operational assumptions change.
 
 ## Current Repository Hygiene
 
 - The README is still the create-next-app template and is not a project guide.
-- No automated tests exist.
-- Vitest covers focused subscriber-notification parsing, normalization,
-  provider classification, occurrence identities, dispatch keys, and error
-  sanitization. Database-backed integration coverage is still incomplete.
+- Vitest: `tests/publishing.test.ts` (schedule maths, error classification,
+  content capture/send strategy, destination status, typed times) and the
+  subscriber-notification tests. `tests/scheduler.int.test.ts` runs only with
+  `TEST_DATABASE_URL` pointing at a disposable database (`npm run test:db`);
+  it never uses `DATABASE_URL`.
+- Never verify migrations with `DATABASE_URL` overrides on the Prisma CLI: it
+  read `.env` instead. Use a schema copy with a hard-coded local URL.
+- Migrations up to `20260613...` did not capture `Post.sourceChatId/
+  sourceMessageId` or `Campaign.scheduleType/specificTimes` (they came from
+  `db push`); `20261109000000_reconcile_schema_drift` adds them idempotently.
 - No CI configuration exists.
-- No scheduler/deployment configuration exists.
 - Logout is handled through a Server Action that clears OTP/session cookies and redirects to `/login`.
-- `createPostAction` exists, but the current posts page has no create-post form.
-- The posts page contains a debug `console.log`.
 
 ## First Steps for Future Agents
 

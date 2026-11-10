@@ -50,6 +50,8 @@ model Bot {
   ownerPlatformUserId     String?
   connectionCodeHash      String?
   connectionCodeExpiresAt DateTime?
+  webhookId               String?                          @unique
+  webhookSecret           String?
   isActive                Boolean                          @default(true)
   createdAt               DateTime                         @default(now())
   updatedAt               DateTime                         @updatedAt
@@ -59,6 +61,8 @@ model Bot {
   subscribers             BotSubscriber[]
   notificationTopics      NotificationTopic[]
   notificationDispatches  SubscriberNotificationDispatch[]
+  deliveries              Delivery[]
+  conversations           BotConversation[]
 
   @@unique([platform, token])
   @@index([userId, platform])
@@ -68,21 +72,41 @@ model Post {
   id                     String                           @id @default(cuid())
   botId                  String
   bot                    Bot                              @relation(fields: [botId], references: [id], onDelete: Cascade)
+  title                  String?
+  /// Message text, or the caption when the post has media.
   content                String?
+  /// Telegram message entities for `content`. Non-null means the post can be sent from stored data.
+  entities               Json?
   mediaUrl               String?
   mediaType              MediaType                        @default(NONE)
+  /// Platform file id, valid for this bot only.
+  mediaFileId            String?
+  /// URL buttons: [[{ text, url }]]
+  buttons                Json?
   createdAt              DateTime                         @default(now())
   updatedAt              DateTime                         @updatedAt
-  sourceChatId           String? // برای ذخیره آیدی چت کاربر
+  archivedAt             DateTime?
+  /// Provenance of posts captured in the owner's private chat (legacy delivery fallback).
+  sourceChatId           String?
   sourceMessageId        Int?
   campaigns              Campaign[]
   notificationTopics     PostNotificationTopic[]
   notificationDispatches SubscriberNotificationDispatch[]
+
+  @@index([botId, archivedAt])
 }
 
-enum ScheduleType {
-  INTERVAL // تکرار بر اساس فاصله زمانی (مثلا هر 24 ساعت)
-  SPECIFIC_TIMES // تکرار در ساعات خاص (مثلا 10:00 و 18:00)
+enum ScheduleKind {
+  ONCE
+  INTERVAL
+  DAILY
+  WEEKLY
+}
+
+enum CampaignStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
 }
 
 model Campaign {
@@ -91,40 +115,134 @@ model Campaign {
   bot                    Bot                              @relation(fields: [botId], references: [id], onDelete: Cascade)
   postId                 String
   post                   Post                             @relation(fields: [postId], references: [id], onDelete: Cascade)
-  chatId                 String // Target Group/Channel ID
-  chatTitle              String
-  scheduleType           ScheduleType                     @default(INTERVAL)
-  intervalHours          Int? // Minimum 24 enforce in app logic
-  specificTimes          String[]
-  randomDelay            Boolean                          @default(false) // ±30 mins
-  isActive               Boolean                          @default(false)
-  nextRun                DateTime
+  name                   String?
+  status                 CampaignStatus                   @default(ACTIVE)
+  scheduleKind           ScheduleKind
+  /// INTERVAL only, minimum 60.
+  intervalMinutes        Int?
+  /// HH:MM wall-clock times for DAILY and WEEKLY.
+  times                  String[]
+  /// WEEKLY only, JavaScript numbering (0 = Sunday).
+  weekdays               Int[]
+  timezone               String                           @default("Asia/Tehran")
+  /// First run for ONCE and INTERVAL; lower bound for the others.
+  startsAt               DateTime                         @default(now())
+  endsAt                 DateTime?
+  maxRuns                Int?
+  jitterMinutes          Int                              @default(0)
+  runCount               Int                              @default(0)
+  lastRunAt              DateTime?
+  /// Null when the campaign is completed.
+  nextRun                DateTime?
+  notifySubscribers      Boolean                          @default(false)
   createdAt              DateTime                         @default(now())
   updatedAt              DateTime                         @updatedAt
-  history                PostHistory[]
-  notifySubscribers      Boolean                          @default(false)
-  subscriberAudienceKey  String?
+  targets                CampaignTarget[]
+  deliveries             Delivery[]
   notificationDispatches SubscriberNotificationDispatch[]
+
+  @@index([status, nextRun])
+  @@index([botId, createdAt])
 }
 
-model PostHistory {
-  id         String     @id @default(cuid())
-  campaignId String
-  campaign   Campaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  sentAt     DateTime   @default(now())
-  status     SendStatus
-  errorLog   String?
+model CampaignTarget {
+  campaignId    String
+  campaign      Campaign      @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  destinationId String
+  destination   ConnectedChat @relation(fields: [destinationId], references: [id], onDelete: Cascade)
+  createdAt     DateTime      @default(now())
+
+  @@id([campaignId, destinationId])
+  @@index([destinationId])
+}
+
+enum DeliveryStatus {
+  PENDING
+  SENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+enum DeliveryTrigger {
+  SCHEDULED
+  MANUAL
+}
+
+model Delivery {
+  id                String          @id @default(cuid())
+  botId             String
+  bot               Bot             @relation(fields: [botId], references: [id], onDelete: Cascade)
+  campaignId        String
+  campaign          Campaign        @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  destinationId     String?
+  destination       ConnectedChat?  @relation(fields: [destinationId], references: [id], onDelete: SetNull)
+  /// Snapshot so history survives destination removal.
+  chatId            String
+  chatTitle         String
+  occurrenceKey     String
+  trigger           DeliveryTrigger @default(SCHEDULED)
+  status            DeliveryStatus  @default(PENDING)
+  runAt             DateTime        @default(now())
+  attempts          Int             @default(0)
+  lockedAt          DateTime?
+  errorKind         String?
+  errorMessage      String?
+  providerMessageId String?
+  sentAt            DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@unique([campaignId, chatId, occurrenceKey])
+  @@index([status, runAt])
+  @@index([campaignId, createdAt])
+  @@index([botId, createdAt])
+}
+
+enum ChatType {
+  GROUP
+  SUPERGROUP
+  CHANNEL
+  UNKNOWN
+}
+
+enum DestinationStatus {
+  ACTIVE
+  NO_PERMISSION
+  REMOVED
+}
+
+model BotConversation {
+  id        String   @id
+  botId     String
+  bot       Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
+  chatId    String
+  kind      String
+  data      Json
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([botId, chatId])
+  @@index([expiresAt])
 }
 
 model ConnectedChat {
-  id        String   @id @default(cuid())
-  botId     String
-  bot       Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
-  chatId    String // شناسه عددی گروه یا کانال تلگرام
-  chatTitle String // نام گروه
-  createdAt DateTime @default(now())
+  id            String            @id @default(cuid())
+  botId         String
+  bot           Bot               @relation(fields: [botId], references: [id], onDelete: Cascade)
+  chatId        String // platform chat id of the group or channel
+  chatTitle     String
+  chatType      ChatType          @default(UNKNOWN)
+  status        DestinationStatus @default(ACTIVE)
+  statusReason  String?
+  lastCheckedAt DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @default(now()) @updatedAt
+  targets       CampaignTarget[]
+  deliveries    Delivery[]
 
-  @@unique([botId, chatId]) // جلوگیری از ثبت تکراری یک گروه برای یک ربات
+  @@unique([botId, chatId])
 }
 
 model BotSubscriber {
@@ -248,11 +366,9 @@ enum MediaType {
   NONE
   IMAGE
   VIDEO
-}
-
-enum SendStatus {
-  SUCCESS
-  FAILED
+  DOCUMENT
+  ANIMATION
+  AUDIO
 }
 
 enum SubscriberStatus {

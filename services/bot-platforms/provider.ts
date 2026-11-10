@@ -54,8 +54,18 @@ export interface BotPlatformProvider {
     method: string,
     payload?: Record<string, unknown>,
   ): Promise<BotApiResponse<T>>;
+  upload<T = unknown>(
+    token: string,
+    method: string,
+    fields: Record<string, string>,
+    file: { field: string; blob: Blob; filename: string },
+  ): Promise<BotApiResponse<T>>;
   getMe(token: string): Promise<BotIdentity>;
-  setWebhook(token: string, url: string): Promise<void>;
+  setWebhook(
+    token: string,
+    url: string,
+    options?: { secretToken?: string },
+  ): Promise<void>;
   deleteWebhook(token: string): Promise<void>;
   sendPrivatePost(
     token: string,
@@ -76,14 +86,38 @@ class HttpBotPlatformProvider implements BotPlatformProvider {
     method: string,
     payload: Record<string, unknown> = {},
   ): Promise<BotApiResponse<T>> {
+    return this.request<T>(token, method, {
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async upload<T = unknown>(
+    token: string,
+    method: string,
+    fields: Record<string, string>,
+    file: { field: string; blob: Blob; filename: string },
+  ): Promise<BotApiResponse<T>> {
+    const form = new FormData();
+    for (const [key, value] of Object.entries(fields)) form.append(key, value);
+    form.append(file.field, file.blob, file.filename);
+    return this.request<T>(token, method, { body: form });
+  }
+
+  private async request<T>(
+    token: string,
+    method: string,
+    init: { headers?: Record<string, string>; body: BodyInit },
+  ): Promise<BotApiResponse<T>> {
     try {
       const response = await fetch(
         `${this.apiBaseUrl}/bot${token}/${method}`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+          ...init,
           cache: "no-store",
+          // Uploads can be slow; everything else should fail fast.
+          signal: AbortSignal.timeout(init.body instanceof FormData ? 120_000 : 15_000),
         },
       );
       const data = (await response.json()) as BotApiResponse<T>;
@@ -119,8 +153,18 @@ class HttpBotPlatformProvider implements BotPlatformProvider {
     return response.result;
   }
 
-  async setWebhook(token: string, url: string): Promise<void> {
-    const response = await this.call(token, "setWebhook", { url });
+  async setWebhook(
+    token: string,
+    url: string,
+    options: { secretToken?: string } = {},
+  ): Promise<void> {
+    const response = await this.call(token, "setWebhook", {
+      url,
+      // Bale's support for secret_token is unverified; only Telegram gets one.
+      ...(options.secretToken && this.platform === "TELEGRAM"
+        ? { secret_token: options.secretToken }
+        : {}),
+    });
     if (!response.ok) {
       throw new Error(response.description || "ثبت وب‌هوک ربات انجام نشد.");
     }

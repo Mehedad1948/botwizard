@@ -4,6 +4,7 @@ import { logoutAction } from "@/app/actions/auth";
 import {
   Bot,
   CalendarClock,
+  FileText,
   ChevronDown,
   CircleUserRound,
   LayoutDashboard,
@@ -27,7 +28,8 @@ import {
 
 const navigation = [
   { suffix: "", label: "داشبورد", icon: LayoutDashboard },
-  { suffix: "bots", label: "مدیریت ربات‌ها", icon: Bot },
+  { suffix: "bots", label: "ربات‌ها و مقصدها", icon: Bot },
+  { suffix: "posts", label: "پست‌ها", icon: FileText },
   { suffix: "campaigns", label: "کمپین‌ها", icon: CalendarClock },
 ] as const;
 

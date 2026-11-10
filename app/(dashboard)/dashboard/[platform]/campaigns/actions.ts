@@ -1,6 +1,5 @@
 "use server";
 
-import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/session";
@@ -10,13 +9,22 @@ import {
   type PlatformSlug,
 } from "@/services/bot-platforms/config";
 import { revalidatePath } from "next/cache";
-import { getBotPlatformProviderBySlug } from "@/services/bot-platforms/provider";
-import { calculateNextRunForSpecificTimes } from "@/lib/scheduling";
-import {
-  createOccurrenceKey,
-  dispatchCampaignSubscribers,
-} from "@/services/audience-notifications/dispatch";
 import { createNotificationTopic } from "@/services/audience-notifications/topics";
+import {
+  createCampaign,
+  deleteCampaign,
+  publishNow,
+  runCampaignNow,
+  setCampaignPaused,
+  summarizeSend,
+  updateCampaign,
+  type CampaignInput,
+} from "@/services/publishing/campaigns";
+import { DEFAULT_TIME_ZONE, zonedToUtc } from "@/services/publishing/schedule";
+import {
+  findActionBot,
+  findActionCampaignBot,
+} from "@/services/dashboard/access";
 
 function revalidateCampaignPages(
   platform: PlatformSlug,
@@ -198,334 +206,6 @@ export async function removeCampaignTopicAction(
   return { success: true };
 }
 
-function getCampaignMessagePayload(campaign: {
-  chatId: string;
-  post: {
-    content: string | null;
-    sourceChatId: string | null;
-    sourceMessageId: number | null;
-  };
-}) {
-  const method =
-    campaign.post.sourceChatId && campaign.post.sourceMessageId
-      ? "copyMessage"
-      : "sendMessage";
-
-  const payload =
-    method === "copyMessage"
-      ? {
-          chat_id: campaign.chatId,
-          from_chat_id: campaign.post.sourceChatId!,
-          message_id: campaign.post.sourceMessageId!,
-        }
-      : {
-          chat_id: campaign.chatId,
-          text: campaign.post.content || "محتوای بدون متن",
-        };
-
-  return { method, payload };
-}
-
-export async function toggleCampaignAction(
-  platform: PlatformSlug,
-  campaignId: string,
-) {
-  const session = await getSession();
-  if (!session?.userId) return { error: "ابتدا وارد حساب خود شوید." };
-
-  const campaign = await prisma.campaign.findFirst({
-    where: {
-      id: campaignId,
-      bot: {
-        userId: session.userId,
-        platform: platformFromSlug(platform),
-      },
-    },
-    select: { id: true, botId: true, isActive: true },
-  });
-  if (!campaign) return { error: "کمپین یافت نشد یا به آن دسترسی ندارید." };
-
-  await prisma.campaign.update({
-    where: { id: campaign.id },
-    data: { isActive: !campaign.isActive },
-  });
-
-  revalidateCampaignPages(platform, campaign.id, campaign.botId);
-  return { success: true };
-}
-
-export async function deleteCampaignAction(
-  platform: PlatformSlug,
-  campaignId: string,
-) {
-  const session = await getSession();
-  if (!session?.userId) return { error: "ابتدا وارد حساب خود شوید." };
-
-  const campaign = await prisma.campaign.findFirst({
-    where: {
-      id: campaignId,
-      bot: {
-        userId: session.userId,
-        platform: platformFromSlug(platform),
-      },
-    },
-    select: { id: true, botId: true },
-  });
-  if (!campaign) return { error: "کمپین یافت نشد یا به آن دسترسی ندارید." };
-
-  await prisma.campaign.delete({ where: { id: campaign.id } });
-  revalidateCampaignPages(platform, campaign.id, campaign.botId);
-  return { success: true };
-}
-
-export async function updateCampaignScheduleAction(
-  platform: PlatformSlug,
-  campaignId: string,
-  formData: FormData,
-) {
-  const session = await getSession();
-  if (!session?.userId) return { error: "ابتدا وارد حساب خود شوید." };
-
-  const scheduleType =
-    String(formData.get("scheduleType")) === "SPECIFIC_TIMES"
-      ? "SPECIFIC_TIMES"
-      : "INTERVAL";
-  const intervalHours = Number(formData.get("intervalHours"));
-  const specificTimes = String(formData.get("specificTimes") ?? "")
-    .split(",")
-    .map((time) => time.trim())
-    .filter(Boolean);
-  const validTimePattern = /^([01]\d|2[0-3]):([0-5]\d)$/;
-
-  if (
-    scheduleType === "INTERVAL" &&
-    (!Number.isInteger(intervalHours) || intervalHours < 2)
-  ) {
-    return { error: "فاصله زمانی باید یک عدد صحیح و حداقل ۲ ساعت باشد." };
-  }
-
-  if (
-    scheduleType === "SPECIFIC_TIMES" &&
-    (specificTimes.length === 0 ||
-      specificTimes.some((time) => !validTimePattern.test(time)))
-  ) {
-    return {
-      error: "ساعت‌ها را با فرمت HH:MM و جداشده با کاما وارد کنید.",
-    };
-  }
-
-  const campaign = await prisma.campaign.findFirst({
-    where: {
-      id: campaignId,
-      bot: {
-        userId: session.userId,
-        platform: platformFromSlug(platform),
-      },
-    },
-    select: { id: true, botId: true },
-  });
-
-  if (!campaign) {
-    return { error: "کمپین یافت نشد یا به آن دسترسی ندارید." };
-  }
-
-  const normalizedTimes = [...new Set(specificTimes)].sort();
-  const nextRun =
-    scheduleType === "SPECIFIC_TIMES"
-      ? calculateNextRunForSpecificTimes(normalizedTimes)
-      : new Date(Date.now() + intervalHours * 60 * 60 * 1000);
-
-  await prisma.campaign.update({
-    where: { id: campaign.id },
-    data: {
-      scheduleType,
-      intervalHours: scheduleType === "INTERVAL" ? intervalHours : null,
-      specificTimes:
-        scheduleType === "SPECIFIC_TIMES" ? normalizedTimes : [],
-      nextRun,
-    },
-  });
-
-  revalidateCampaignPages(platform, campaign.id, campaign.botId);
-  return { success: true };
-}
-
-export async function sendCampaignNowAction(
-  platform: PlatformSlug,
-  campaignId: string,
-) {
-  const session = await getSession();
-  if (!session?.userId) return { error: "ابتدا وارد حساب خود شوید." };
-
-  const campaign = await prisma.campaign.findFirst({
-    where: {
-      id: campaignId,
-      bot: {
-        userId: session.userId,
-        platform: platformFromSlug(platform),
-      },
-    },
-    include: {
-      bot: {
-        select: {
-          id: true,
-          token: true,
-          isActive: true,
-          platform: true,
-        },
-      },
-      post: {
-        select: {
-          content: true,
-          sourceChatId: true,
-          sourceMessageId: true,
-        },
-      },
-    },
-  });
-
-  if (!campaign) {
-    return { error: "کمپین یافت نشد یا به آن دسترسی ندارید." };
-  }
-
-  if (!campaign.bot.isActive) {
-    return { error: "برای ارسال دستی، ابتدا ربات را فعال کنید." };
-  }
-
-  const { method, payload } = getCampaignMessagePayload(campaign);
-  const provider = getBotPlatformProviderBySlug(platform);
-
-  try {
-    const result = await provider.call(campaign.bot.token, method, payload);
-
-    await prisma.postHistory.create({
-      data: {
-        campaignId: campaign.id,
-        status: result.ok ? "SUCCESS" : "FAILED",
-        errorLog: result.ok ? null : result.description || "ارسال ناموفق بود.",
-      },
-    });
-
-    revalidateCampaignPages(platform, campaign.id, campaign.bot.id);
-
-    if (!result.ok) {
-      return {
-        error:
-          result.description ||
-          `ارسال دستی در ${provider.slug === "telegram" ? "تلگرام" : "بله"} انجام نشد.`,
-      };
-    }
-
-    let subscriberSummary = null;
-    try {
-      subscriberSummary = await dispatchCampaignSubscribers({
-        campaignId: campaign.id,
-        occurrenceKey: createOccurrenceKey({ operationId: randomUUID() }),
-      });
-    } catch (error) {
-      console.error("[Subscriber notification phase failed]", error);
-    }
-
-    return { success: true, subscriberSummary };
-  } catch {
-    await prisma.postHistory.create({
-      data: {
-        campaignId: campaign.id,
-        status: "FAILED",
-        errorLog: "ارتباط با پیام‌رسان برقرار نشد.",
-      },
-    });
-
-    revalidateCampaignPages(platform, campaign.id, campaign.bot.id);
-    return { error: "ارتباط با پیام‌رسان برقرار نشد. دوباره تلاش کنید." };
-  }
-}
-
-export async function sendCampaignPreviewToOwnerAction(
-  platform: PlatformSlug,
-  campaignId: string,
-) {
-  const session = await getSession();
-  if (!session?.userId) return { error: "ابتدا وارد حساب خود شوید." };
-
-  const campaign = await prisma.campaign.findFirst({
-    where: {
-      id: campaignId,
-      bot: {
-        userId: session.userId,
-        platform: platformFromSlug(platform),
-      },
-    },
-    include: {
-      bot: {
-        select: {
-          id: true,
-          token: true,
-          isActive: true,
-          ownerPlatformUserId: true,
-        },
-      },
-      post: {
-        select: {
-          content: true,
-          sourceChatId: true,
-          sourceMessageId: true,
-        },
-      },
-    },
-  });
-
-  if (!campaign) {
-    return { error: "کمپین یافت نشد یا به آن دسترسی ندارید." };
-  }
-
-  if (!campaign.bot.isActive) {
-    return { error: "برای مشاهده پیام، ابتدا ربات را فعال کنید." };
-  }
-
-  if (!campaign.bot.ownerPlatformUserId) {
-    return { error: "شناسه مالک ربات برای ارسال پیش‌نمایش در دسترس نیست." };
-  }
-
-  const previewTarget = campaign.bot.ownerPlatformUserId;
-  const method =
-    campaign.post.sourceChatId && campaign.post.sourceMessageId
-      ? "copyMessage"
-      : "sendMessage";
-  const payload =
-    method === "copyMessage"
-      ? {
-          chat_id: previewTarget,
-          from_chat_id: campaign.post.sourceChatId!,
-          message_id: campaign.post.sourceMessageId!,
-        }
-      : {
-          chat_id: previewTarget,
-          text: campaign.post.content || "محتوای بدون متن",
-        };
-
-  try {
-    const result = await getBotPlatformProviderBySlug(platform).call(
-      campaign.bot.token,
-      method,
-      payload,
-    );
-
-    if (!result.ok) {
-      return {
-        error:
-          result.description || "ارسال پیش‌نمایش به گفت‌وگوی خصوصی ربات انجام نشد.",
-      };
-    }
-
-    return { success: true };
-  } catch {
-    return {
-      error: "ارسال پیش‌نمایش به گفت‌وگوی خصوصی ربات انجام نشد. دوباره تلاش کنید.",
-    };
-  }
-}
-
 export async function toggleCampaignSubscriberNotificationsAction(
   platform: PlatformSlug,
   campaignId: string,
@@ -544,11 +224,7 @@ export async function toggleCampaignSubscriberNotificationsAction(
     select: {
       id: true,
       botId: true,
-      postId: true,
-      scheduleType: true,
-      nextRun: true,
       notifySubscribers: true,
-      subscriberAudienceKey: true,
       post: {
         select: {
           notificationTopics: {
@@ -570,13 +246,130 @@ export async function toggleCampaignSubscriberNotificationsAction(
 
   await prisma.campaign.update({
     where: { id: campaign.id },
-    data: {
-      notifySubscribers,
-      subscriberAudienceKey:
-        campaign.subscriberAudienceKey ||
-        `post:${campaign.postId}:${campaign.scheduleType}:${campaign.nextRun.toISOString()}`,
-    },
+    data: { notifySubscribers },
   });
   revalidateCampaignPages(platform, campaign.id, campaign.botId);
+  return { success: true };
+}
+
+// ------------------------------------------------------------------ campaigns
+
+function readCampaignForm(formData: FormData): CampaignInput | { error: string } {
+  const kind = String(formData.get("scheduleKind") ?? "");
+  if (!["ONCE", "INTERVAL", "DAILY", "WEEKLY"].includes(kind)) {
+    return { error: "نوع زمان‌بندی را انتخاب کنید." };
+  }
+  const timezone = DEFAULT_TIME_ZONE;
+  const optionalNumber = (name: string) => {
+    const value = String(formData.get(name) ?? "").trim();
+    return value ? Number(value) : null;
+  };
+  const intervalValue = optionalNumber("intervalValue");
+  const intervalUnit = String(formData.get("intervalUnit") ?? "hours");
+
+  return {
+    postId: String(formData.get("postId") ?? ""),
+    destinationIds: formData.getAll("destinationIds").map(String),
+    name: String(formData.get("name") ?? ""),
+    notifySubscribers: formData.get("notifySubscribers") === "on",
+    scheduleKind: kind as CampaignInput["scheduleKind"],
+    intervalMinutes:
+      intervalValue === null
+        ? null
+        : Math.round(intervalValue * (intervalUnit === "days" ? 1440 : 60)),
+    times: formData.getAll("times").map(String).filter(Boolean),
+    weekdays: formData.getAll("weekdays").map(Number),
+    timezone,
+    startsAt: parseLocalDateTime(String(formData.get("startsAt") ?? ""), timezone),
+    endsAt: parseLocalDateTime(String(formData.get("endsAt") ?? ""), timezone),
+    maxRuns: optionalNumber("maxRuns"),
+    jitterMinutes: optionalNumber("jitterMinutes") ?? 0,
+  };
+}
+
+/** Parses an <input type="datetime-local"> value as wall-clock time in `timezone`. */
+function parseLocalDateTime(value: string, timezone: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(value);
+  if (!match) return null;
+  const [, year, month, day, hour, minute] = match.map(Number);
+  return zonedToUtc(year, month, day, hour, minute, timezone);
+}
+
+export async function saveCampaignAction(
+  platform: PlatformSlug,
+  botId: string,
+  campaignId: string | null,
+  formData: FormData,
+): Promise<{ success?: boolean; error?: string; campaignId?: string }> {
+  const bot = await findActionBot(platform, botId);
+  if (!bot) return { error: "ربات پیدا نشد یا به آن دسترسی ندارید." };
+
+  const input = readCampaignForm(formData);
+  if ("error" in input) return { error: input.error };
+
+  const result = campaignId
+    ? await updateCampaign(bot.id, campaignId, input)
+    : await createCampaign(bot.id, input);
+  if (!result.ok) return { error: result.error };
+
+  revalidateCampaignPages(platform, result.value.id, bot.id);
+  return { success: true, campaignId: result.value.id };
+}
+
+export async function publishNowAction(
+  platform: PlatformSlug,
+  botId: string,
+  formData: FormData,
+): Promise<{ success?: boolean; error?: string; campaignId?: string; message?: string }> {
+  const bot = await findActionBot(platform, botId);
+  if (!bot) return { error: "ربات پیدا نشد یا به آن دسترسی ندارید." };
+  if (!bot.isActive) return { error: "ربات غیرفعال است؛ ابتدا آن را فعال کنید." };
+
+  const result = await publishNow(bot.id, {
+    postId: String(formData.get("postId") ?? ""),
+    destinationIds: formData.getAll("destinationIds").map(String),
+    name: String(formData.get("name") ?? ""),
+    notifySubscribers: formData.get("notifySubscribers") === "on",
+  });
+  if (!result.ok) return { error: result.error };
+
+  revalidateCampaignPages(platform, result.value.id, bot.id);
+  return {
+    success: true,
+    campaignId: result.value.id,
+    message: summarizeSend(result.value.summary),
+  };
+}
+
+export async function setCampaignPausedAction(
+  platform: PlatformSlug,
+  campaignId: string,
+  paused: boolean,
+) {
+  const botId = await findActionCampaignBot(platform, campaignId);
+  if (!botId) return { error: "کمپین یافت نشد یا به آن دسترسی ندارید." };
+  const result = await setCampaignPaused(botId, campaignId, paused);
+  if (!result.ok) return { error: result.error };
+  revalidateCampaignPages(platform, campaignId, botId);
+  return { success: true };
+}
+
+export async function deleteCampaignAction(platform: PlatformSlug, campaignId: string) {
+  const botId = await findActionCampaignBot(platform, campaignId);
+  if (!botId) return { error: "کمپین یافت نشد یا به آن دسترسی ندارید." };
+  await deleteCampaign(botId, campaignId);
+  revalidateCampaignPages(platform, campaignId, botId);
+  return { success: true };
+}
+
+export async function runCampaignNowAction(platform: PlatformSlug, campaignId: string) {
+  const botId = await findActionCampaignBot(platform, campaignId);
+  if (!botId) return { error: "کمپین یافت نشد یا به آن دسترسی ندارید." };
+  const result = await runCampaignNow(botId, campaignId);
+  revalidateCampaignPages(platform, campaignId, botId);
+  if (!result.ok) return { error: result.error };
+  if (!result.value.sent && result.value.failed) {
+    return { error: `ارسال انجام نشد: ${summarizeSend(result.value)}. جزئیات در تاریخچه ارسال‌ها.` };
+  }
   return { success: true };
 }

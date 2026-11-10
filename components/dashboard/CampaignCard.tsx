@@ -1,189 +1,126 @@
-import {
-  deleteCampaignAction,
-  sendCampaignNowAction,
-  sendCampaignPreviewToOwnerAction,
-  toggleCampaignAction,
-} from "@/app/(dashboard)/dashboard/[platform]/campaigns/actions";
-import { EditCampaignScheduleButton } from "@/app/(dashboard)/dashboard/[platform]/campaigns/EditCampaignScheduleButton";
-import { ConfirmedActionButton } from "@/components/dashboard/ConfirmedActionButton";
-import { Button } from "@/components/ui/button";
-import {
-  dashboardPath,
-  platformConfigs,
-  type PlatformSlug,
-} from "@/services/bot-platforms/config";
-import {
-  Clock3,
-  ExternalLink,
-  ListTree,
-  MessageCircleMore,
-  Pause,
-  Play,
-  Send,
-  Trash2,
-} from "lucide-react";
+import type { CampaignStatus, DeliveryStatus, MediaType, ScheduleKind } from "@prisma/client";
+import { CalendarClock, Megaphone, Pause, Play, Rocket, Trash2 } from "lucide-react";
 import Link from "next/link";
 
-const tehranDateTime = new Intl.DateTimeFormat("fa-IR", {
-  timeZone: "Asia/Tehran",
-  dateStyle: "medium",
-  timeStyle: "short",
-});
+import {
+  deleteCampaignAction,
+  runCampaignNowAction,
+  setCampaignPausedAction,
+} from "@/app/(dashboard)/dashboard/[platform]/campaigns/actions";
+import { ConfirmedActionButton } from "@/components/dashboard/ConfirmedActionButton";
+import { CampaignStatusBadge, DeliveryStatusBadge } from "@/components/publishing/ui";
+import {
+  dashboardPath,
+  type PlatformSlug,
+} from "@/services/bot-platforms/config";
+import { postPreviewText } from "@/services/publishing/content";
+import { describeSchedule, faNumber, formatDateTime } from "@/services/publishing/format";
 
 export type CampaignCardData = {
   id: string;
-  chatTitle: string;
-  isActive: boolean;
-  scheduleType: "INTERVAL" | "SPECIFIC_TIMES";
-  intervalHours: number | null;
-  specificTimes: string[];
-  nextRun: Date;
-  bot: {
-    id: string;
-    username: string;
-  };
-  _count: {
-    history: number;
-  };
+  name: string | null;
+  status: CampaignStatus;
+  scheduleKind: ScheduleKind;
+  intervalMinutes: number | null;
+  times: string[];
+  weekdays: number[];
+  startsAt: Date;
+  timezone: string;
+  nextRun: Date | null;
+  lastRunAt: Date | null;
+  post: { title: string | null; content: string | null; mediaType: MediaType };
+  bot?: { username: string };
+  _count: { targets: number };
+  deliveries: { status: DeliveryStatus; createdAt: Date }[];
+};
+
+export const campaignCardInclude = {
+  post: { select: { title: true, content: true, mediaType: true } },
+  bot: { select: { username: true } },
+  _count: { select: { targets: true } },
+  deliveries: {
+    orderBy: { createdAt: "desc" as const },
+    take: 1,
+    select: { status: true, createdAt: true },
+  },
 };
 
 export function CampaignCard({
   campaign,
   platform,
-  showBotDetails = true,
+  showBot = true,
 }: {
   campaign: CampaignCardData;
   platform: PlatformSlug;
-  showBotDetails?: boolean;
+  showBot?: boolean;
 }) {
-  const platformConfig = platformConfigs[platform];
-  const timeRemaining = formatTimeRemaining(campaign.nextRun, new Date());
+  const title = campaign.name || campaign.post.title || postPreviewText(campaign.post, 70);
+  const lastDelivery = campaign.deliveries[0];
 
   return (
-    <article className="dashboard-card space-y-4 rounded-2xl p-5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="mb-2 flex flex-wrap gap-2">
-            <span
-              className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                campaign.isActive
-                  ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
-                  : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
-              }`}
-            >
-              {campaign.isActive ? "فعال" : "متوقف"}
-            </span>
-          </div>
-          <h3 className="font-semibold">{campaign.chatTitle}</h3>
-          {showBotDetails && (
-            <p className="mt-1 text-xs text-muted-foreground" dir="ltr">
+    <article className="dashboard-card flex flex-col gap-4 rounded-2xl p-5">
+      <div className="flex items-start justify-between gap-3">
+        <Link
+          href={dashboardPath(platform, `campaigns/${campaign.id}`)}
+          className="min-w-0 flex-1 space-y-1"
+        >
+          <h3 className="line-clamp-2 font-bold leading-7 text-slate-900 hover:underline">{title}</h3>
+          {showBot && campaign.bot && (
+            <p className="text-xs text-slate-400" dir="ltr">
               @{campaign.bot.username}
             </p>
           )}
-        </div>
-
-        <div className="flex max-w-[58%] items-center gap-1 rounded-2xl border border-[color:var(--dashboard-accent-border)] bg-[color:var(--dashboard-accent-soft)] px-2 py-1.5 text-left text-sm font-black leading-6 text-[color:var(--dashboard-accent-ink)] shadow-sm shadow-[color:var(--dashboard-accent-shadow)]">
-          <span>
-            {campaign.scheduleType === "SPECIFIC_TIMES"
-              ? `روزانه: ${campaign.specificTimes.join("، ")}`
-              : `هر ${campaign.intervalHours} ساعت`}
-          </span>
-          <EditCampaignScheduleButton
-            platform={platform}
-            campaignId={campaign.id}
-            scheduleType={campaign.scheduleType}
-            intervalHours={campaign.intervalHours}
-            specificTimes={campaign.specificTimes}
-          />
-        </div>
+        </Link>
+        <CampaignStatusBadge status={campaign.status} />
       </div>
 
-      <div className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground">
-        {campaign.isActive && (
-          <>
-            <span className="flex items-center gap-2">
-              <Clock3 className="size-4" />
-              اجرای بعدی: {tehranDateTime.format(campaign.nextRun)}
-            </span>
-            <span className={timeRemaining.className}>
-              {timeRemaining.label}
-            </span>
-          </>
-        )}
+      <dl className="grid gap-2 text-sm text-slate-600">
+        <div className="flex items-center gap-2">
+          <CalendarClock className="size-4 shrink-0 text-slate-400" />
+          <dd>{describeSchedule(campaign)}</dd>
+        </div>
+        <div className="flex items-center gap-2">
+          <Megaphone className="size-4 shrink-0 text-slate-400" />
+          <dd>{faNumber(campaign._count.targets)} مقصد</dd>
+        </div>
+      </dl>
+
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
         <span>
-          {campaign._count.history === 0
-            ? "بدون اجرا تا این لحظه"
-            : `${campaign._count.history.toLocaleString("fa-IR")} اجرای ثبت‌شده`}
+          {campaign.status === "ACTIVE" && campaign.nextRun
+            ? `اجرای بعدی: ${formatDateTime(campaign.nextRun, campaign.timezone)}`
+            : campaign.lastRunAt
+              ? `آخرین اجرا: ${formatDateTime(campaign.lastRunAt, campaign.timezone)}`
+              : "هنوز اجرا نشده"}
         </span>
+        {lastDelivery && <DeliveryStatusBadge status={lastDelivery.status} />}
       </div>
 
-      <div className="flex flex-wrap gap-2 border-t pt-4">
-        <Button asChild size="sm" className="shadow-sm">
-          <Link href={dashboardPath(platform, `campaigns/${campaign.id}`)}>
-            <ListTree />
-            جزئیات کمپین
-          </Link>
-        </Button>
-
-        <ConfirmedActionButton
-          action={sendCampaignNowAction.bind(null, platform, campaign.id)}
-          confirmTitle="ارسال دستی پیام به مقصد؟"
-          confirmDescription={`پیام همین حالا به «${campaign.chatTitle}» ارسال می‌شود و در تاریخچه کمپین ثبت خواهد شد.`}
-          pendingLabel="در حال ارسال..."
-          variant="bale"
-          className="shadow-sm"
-        >
-          <Send />
-          ارسال دستی به مقصد
-        </ConfirmedActionButton>
-
-        <ConfirmedActionButton
-          action={sendCampaignPreviewToOwnerAction.bind(
-            null,
-            platform,
-            campaign.id,
-          )}
-          confirmTitle={`ارسال پیش‌نمایش در ${platformConfig.labelFa}؟`}
-          confirmDescription="پیام دوباره در گفت‌وگوی خصوصی شما با همین ربات ارسال می‌شود تا آن را کامل ببینید."
-          pendingLabel="در حال ارسال..."
-          variant="outline"
-          className="border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 hover:text-sky-800"
-        >
-          <MessageCircleMore />
-          مشاهده پیام در {platformConfig.labelFa}
-        </ConfirmedActionButton>
-
-        {showBotDetails && (
-          <Button asChild variant="outline" size="sm" className="shadow-sm">
-            <Link
-              href={`${dashboardPath(
-                platform,
-                `bots/${campaign.bot.id}`,
-              )}#campaigns`}
-            >
-              <ExternalLink />
-              جزئیات ربات
-            </Link>
-          </Button>
+      <div className="flex flex-wrap gap-2">
+        {campaign.status !== "COMPLETED" && (
+          <ConfirmedActionButton
+            action={setCampaignPausedAction.bind(null, platform, campaign.id, campaign.status === "ACTIVE")}
+            pendingLabel="در حال تغییر…"
+          >
+            {campaign.status === "ACTIVE" ? <Pause /> : <Play />}
+            {campaign.status === "ACTIVE" ? "توقف" : "ادامه"}
+          </ConfirmedActionButton>
         )}
-
         <ConfirmedActionButton
-          action={toggleCampaignAction.bind(null, platform, campaign.id)}
-          pendingLabel="در حال تغییر..."
-          variant="secondary"
-          className="shadow-sm"
+          action={runCampaignNowAction.bind(null, platform, campaign.id)}
+          confirmTitle="همین حالا ارسال شود؟"
+          confirmDescription={`پست یک‌بار فوری به ${faNumber(campaign._count.targets)} مقصد ارسال می‌شود. زمان‌بندی کمپین تغییر نمی‌کند.`}
+          pendingLabel="در حال ارسال…"
         >
-          {campaign.isActive ? <Pause /> : <Play />}
-          {campaign.isActive ? "توقف" : "فعال‌سازی"}
+          <Rocket />
+          اجرای فوری
         </ConfirmedActionButton>
-
         <ConfirmedActionButton
           action={deleteCampaignAction.bind(null, platform, campaign.id)}
-          confirmTitle="حذف دائمی کمپین؟"
-          confirmDescription="این کمپین و تاریخچه ارسال آن برای همیشه حذف می‌شود."
-          pendingLabel="در حال حذف..."
+          confirmTitle="حذف کمپین؟"
+          confirmDescription="کمپین و تاریخچه ارسال‌های آن برای همیشه حذف می‌شود. پست حذف نمی‌شود."
+          pendingLabel="در حال حذف…"
           variant="destructive"
-          className="shadow-sm"
         >
           <Trash2 />
           حذف
@@ -191,33 +128,4 @@ export function CampaignCard({
       </div>
     </article>
   );
-}
-
-function formatTimeRemaining(nextRun: Date, now: Date) {
-  const remainingMinutes = Math.floor(
-    (nextRun.getTime() - now.getTime()) / (60 * 1000),
-  );
-
-  if (remainingMinutes <= 0) {
-    return {
-      label: "زمان اجرای بعدی رسیده است",
-      className: "font-bold text-amber-600",
-    };
-  }
-
-  const days = Math.floor(remainingMinutes / (24 * 60));
-  const hours = Math.floor((remainingMinutes % (24 * 60)) / 60);
-  const minutes = remainingMinutes % 60;
-  const parts: string[] = [];
-
-  if (days > 0) parts.push(`${days.toLocaleString("fa-IR")} روز`);
-  if (hours > 0) parts.push(`${hours.toLocaleString("fa-IR")} ساعت`);
-  if (minutes > 0 && days === 0) {
-    parts.push(`${minutes.toLocaleString("fa-IR")} دقیقه`);
-  }
-
-  return {
-    label: `تا اجرای بعدی: ${parts.join(" و ") || "کمتر از یک دقیقه"}`,
-    className: "font-bold text-emerald-600",
-  };
 }

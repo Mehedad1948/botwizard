@@ -145,7 +145,7 @@ export default async function BotNotificationsPage({
             platformUserId: true,
           },
         },
-        campaign: { select: { chatTitle: true } },
+        campaign: { select: { name: true, post: { select: { content: true } } } },
       },
       orderBy: { createdAt: "desc" },
       skip: (dispatchPage - 1) * pageSize,
@@ -452,7 +452,7 @@ export default async function BotNotificationsPage({
                           : dispatch.subscriber.firstName ||
                             dispatch.subscriber.platformUserId}
                       </td>
-                      <td className="p-3">{dispatch.campaign?.chatTitle ?? "ارسال دستی"}</td>
+                      <td className="p-3">{dispatch.campaign?.name || dispatch.campaign?.post.content?.slice(0, 40) || "ارسال دستی"}</td>
                       <td className="p-3">{dispatch.status}</td>
                       <td className="p-3">{dispatch.attemptCount.toLocaleString("fa-IR")}</td>
                       <td className="p-3">{tehranDateTime.format(dispatch.sentAt ?? dispatch.createdAt)}</td>

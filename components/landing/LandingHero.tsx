@@ -30,10 +30,10 @@ export function LandingHero() {
       />
       <div
         aria-hidden="true"
-        className="absolute hidden md:bock -right-16 bottom-0 size-72 rounded-full bg-brand-lilac/40 blur-3xl"
+        className="absolute hidden md:block -right-16 bottom-0 size-72 rounded-full bg-brand-lilac/40 blur-3xl"
       />
 
-      <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-visible bg-white">
+      <div className="landing-hero-card relative flex h-full min-h-0 flex-1 flex-col overflow-visible bg-white">
         <LandingNotch className="absolute bottom-full min-h-5 translate-y-0.5" />
         <LandingNotch className="absolute top-full -translate-y-0.5 -scale-y-100" />
 
@@ -107,7 +107,6 @@ export function LandingHero() {
               </div>
 
               <div
-                id="features"
                 className="mt-7 hidden flex-wrap items-center gap-x-5 gap-y-3 lg:flex"
               >
                 {highlights.map(({ icon: Icon, label }) => (

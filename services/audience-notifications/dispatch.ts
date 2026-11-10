@@ -1,10 +1,33 @@
 import { createHash, randomUUID } from "node:crypto";
 
-import type { BotPlatform, NotificationDispatchStatus } from "@prisma/client";
+import type {
+  BotPlatform,
+  MediaType,
+  NotificationDispatchStatus,
+  Prisma,
+} from "@prisma/client";
 
 import prisma from "@/lib/prisma";
 import { getBotPlatformProvider } from "@/services/bot-platforms/provider";
 import { subscriberNotificationConfig } from "./config";
+import type { ProviderSendResult } from "@/services/bot-platforms/provider";
+import { sendPost, type SendResult } from "@/services/publishing/content";
+
+function toProviderSendResult(result: SendResult): ProviderSendResult {
+  if (result.ok) return result;
+  const { kind, detail, retryAfterSeconds } = result.error;
+  return {
+    ok: false,
+    kind:
+      kind === "BLOCKED" || kind === "REMOVED"
+        ? "BLOCKED"
+        : kind === "RATE_LIMITED" || kind === "TRANSIENT"
+          ? kind
+          : "TERMINAL",
+    description: detail,
+    retryAfterSeconds,
+  };
+}
 
 type DispatchSummary = {
   matched: number;
@@ -19,8 +42,6 @@ type CampaignForDispatch = {
   botId: string;
   postId: string;
   notifySubscribers: boolean;
-  subscriberAudienceKey: string | null;
-  nextRun: Date;
   bot: {
     platform: BotPlatform;
     token: string;
@@ -28,6 +49,10 @@ type CampaignForDispatch = {
   };
   post: {
     content: string | null;
+    entities: Prisma.JsonValue | null;
+    mediaType: MediaType;
+    mediaFileId: string | null;
+    buttons: Prisma.JsonValue | null;
     sourceChatId: string | null;
     sourceMessageId: number | null;
     notificationTopics: Array<{
@@ -92,8 +117,6 @@ export async function dispatchCampaignSubscribers(input: {
       botId: true,
       postId: true,
       notifySubscribers: true,
-      subscriberAudienceKey: true,
-      nextRun: true,
       bot: {
         select: {
           platform: true,
@@ -104,6 +127,10 @@ export async function dispatchCampaignSubscribers(input: {
       post: {
         select: {
           content: true,
+          entities: true,
+          mediaType: true,
+          mediaFileId: true,
+          buttons: true,
           sourceChatId: true,
           sourceMessageId: true,
           notificationTopics: {
@@ -120,8 +147,7 @@ export async function dispatchCampaignSubscribers(input: {
     .map((item) => item.topic.id);
   if (!topicIds.length) return { ...summary, skipped: 1 };
 
-  const audienceKey =
-    campaign.subscriberAudienceKey || `campaign:${campaign.id}`;
+  const audienceKey = `campaign:${campaign.id}`;
   let cursor: string | undefined;
 
   while (true) {
@@ -233,13 +259,13 @@ async function processSubscriberDispatch(input: {
   });
   if (claimed.count !== 1) return "SKIPPED";
 
-  const result = await getBotPlatformProvider(
-    input.campaign.bot.platform,
-  ).sendPrivatePost(
+  const sent = await sendPost(
+    getBotPlatformProvider(input.campaign.bot.platform),
     input.campaign.bot.token,
     input.subscriber.privateChatId,
     input.campaign.post,
   );
+  const result = toProviderSendResult(sent);
 
   if (result.ok) {
     await prisma.subscriberNotificationDispatch.update({

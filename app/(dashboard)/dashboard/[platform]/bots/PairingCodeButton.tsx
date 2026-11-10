@@ -33,7 +33,7 @@ export function PairingCodeButton({
   return (
     <div className="w-full space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
       <p className="text-xs leading-5 text-amber-800">
-        مالک بله هنوز به این ربات متصل نشده است.
+        حساب شما هنوز به‌عنوان مالک به این ربات متصل نشده است. یک کد بسازید و دستور زیر را در گفت‌وگوی خصوصی با ربات بفرستید.
       </p>
       <Button
         type="button"

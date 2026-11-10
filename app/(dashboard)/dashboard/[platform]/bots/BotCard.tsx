@@ -90,7 +90,7 @@ export function BotCard({
         </ConfirmedActionButton>
       </div>
 
-      {platform === "bale" && !bot.ownerPlatformUserId && (
+      {!bot.ownerPlatformUserId && (
         <PairingCodeButton platform={platform} botId={bot.id} />
       )}
     </article>

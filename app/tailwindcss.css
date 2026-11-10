@@ -141,6 +141,11 @@
     max-width: 100%;
     overflow-x: clip;
   }
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
 }
 
 @layer components {
@@ -359,29 +364,67 @@
     box-shadow: 0 0.9rem 2.2rem var(--dashboard-accent-shadow);
   }
 
+  /*
+   * Landing stack: the hero stays pinned while full-viewport sheets slide over
+   * it and over each other. Every sheet is a sticky sibling inside the same
+   * grid container, so earlier sheets remain stuck while later ones cover
+   * them. Each sheet's bottom margin is the reading pause before the next one
+   * arrives.
+   */
   .landing-content-surface {
-    min-height: 100svh;
-    box-shadow: 0 -0.2rem 0.7rem rgb(109 40 217 / 0.1);
+    --landing-sheet-radius: 1.75rem;
+    --landing-section-pause: 35svh;
+    position: relative;
+    display: grid;
+  }
+
+  /*
+   * In normal flow the whole surface is one sheet over the hero. Once sheets
+   * pin, each section becomes its own sheet (see the stacking media query).
+   */
+  .landing-content-surface {
+    border-start-start-radius: var(--landing-sheet-radius);
+    border-start-end-radius: var(--landing-sheet-radius);
+    background: white;
+    box-shadow: 0 -1px 0 rgb(15 23 42 / 0.04);
   }
 
   .landing-page-section {
     position: relative;
     z-index: var(--landing-section-stack);
-    min-height: 135svh;
+    width: 100%;
+    min-width: 0;
     overflow-x: clip;
+    background: white;
+  }
+
+  /* Soft shade an arriving sheet casts on whatever it is covering. */
+  .landing-content-surface::before,
+  .landing-page-section::before {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 100%;
+    height: 9rem;
+    pointer-events: none;
+    background: linear-gradient(
+      to top,
+      rgb(15 23 42 / 0.12),
+      rgb(15 23 42 / 0.03) 45%,
+      transparent
+    );
+  }
+
+  .landing-content-surface::before {
+    content: "";
   }
 
   .landing-page-section-inner {
-    position: sticky;
-    top: 0;
     display: grid;
-    min-height: 100svh;
     width: min(100%, 80rem);
     margin-inline: auto;
     align-items: center;
-    gap: 3rem;
-    padding: clamp(4.5rem, 8vw, 7rem) 1.5rem;
-    background: white;
+    gap: 2.5rem;
+    padding: 4.5rem 1.5rem;
   }
 
   .landing-page-section-image,
@@ -391,6 +434,17 @@
 
   .landing-page-section-content {
     align-self: center;
+  }
+
+  @media (min-width: 40rem) {
+    .landing-content-surface {
+      --landing-sheet-radius: 2.5rem;
+    }
+
+    .landing-page-section-inner {
+      gap: 3rem;
+      padding: 6rem 2.5rem;
+    }
   }
 
   @media (min-width: 64rem) {
@@ -418,13 +472,63 @@
     }
   }
 
+  /*
+   * Sheets only pin when a whole sheet fits in the viewport. On phones and
+   * short windows the content can be taller than the screen, and a pinned
+   * sheet would hide its own lower half, so they scroll in normal flow.
+   */
+  @media (min-width: 64rem) and (min-height: 40rem) {
+    .landing-content-surface {
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .landing-content-surface::before {
+      content: none;
+    }
+
+    .landing-page-section {
+      position: sticky;
+      top: 0;
+      display: flex;
+      min-height: 100svh;
+      align-items: center;
+      margin-bottom: var(--landing-section-pause);
+      border-start-start-radius: var(--landing-sheet-radius);
+      border-start-end-radius: var(--landing-sheet-radius);
+      box-shadow: 0 -1px 0 rgb(15 23 42 / 0.04);
+    }
+
+    .landing-page-section::before {
+      content: "";
+    }
+
+    /*
+     * A sticky sheet's own margin counts against its containing block, so the
+     * last sheet gets its pause from a trailing spacer instead.
+     */
+    .landing-page-section:last-of-type {
+      margin-bottom: 0;
+    }
+
+    .landing-content-surface::after {
+      content: "";
+      height: var(--landing-section-pause);
+    }
+
+    .landing-page-section-inner {
+      padding-block: clamp(3rem, 8svh, 6rem);
+    }
+  }
+
   @supports (animation-timeline: view()) {
     .landing-page-section-image,
     .landing-page-section-content {
       animation-fill-mode: both;
       animation-timeline: view(block);
-      animation-range: entry 0% cover 22%;
-      animation-timing-function: linear;
+      animation-range: entry 10% entry 90%;
+      animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
     }
 
     .landing-page-section-image {
@@ -441,6 +545,28 @@
 
     .landing-page-section-reverse .landing-page-section-content {
       animation-name: landing-section-content-enter-reverse;
+    }
+
+    /* Corners square off as a sheet lands so no hero shows past a pinned sheet. */
+    .landing-page-section {
+      animation: landing-sheet-settle linear both;
+      animation-timeline: view(block);
+      animation-range: entry 70% entry 100%;
+    }
+
+    .landing-content-surface::before,
+    .landing-page-section::before {
+      animation: landing-sheet-shade linear both;
+      animation-timeline: view(block);
+      animation-range: entry 0% entry 100%;
+    }
+
+    /* The hero card recedes slightly while the first sheet covers it. */
+    .landing-hero-card {
+      animation: landing-hero-recede linear both;
+      animation-timeline: scroll(root block);
+      animation-range: 0 100svh;
+      transform-origin: 50% 0%;
     }
   }
 
@@ -505,7 +631,11 @@
     .landing-sparkle-float,
     .landing-platform-orbit,
     .landing-page-section-image,
-    .landing-page-section-content {
+    .landing-page-section-content,
+    .landing-page-section,
+    .landing-content-surface::before,
+    .landing-page-section::before,
+    .landing-hero-card {
       animation: none;
       filter: none;
       transform: none;
@@ -517,7 +647,7 @@
 @keyframes landing-section-image-enter {
   from {
     opacity: 0;
-    transform: translate3d(-4rem, 3rem, 0) scale(0.94);
+    transform: translate3d(-2.5rem, 2rem, 0) scale(0.96);
   }
   to {
     opacity: 1;
@@ -528,7 +658,7 @@
 @keyframes landing-section-content-enter {
   from {
     opacity: 0;
-    transform: translate3d(4rem, 2rem, 0);
+    transform: translate3d(2.5rem, 1.5rem, 0);
   }
   to {
     opacity: 1;
@@ -539,7 +669,7 @@
 @keyframes landing-section-image-enter-reverse {
   from {
     opacity: 0;
-    transform: translate3d(4rem, 3rem, 0) scale(0.94);
+    transform: translate3d(2.5rem, 2rem, 0) scale(0.96);
   }
   to {
     opacity: 1;
@@ -550,11 +680,38 @@
 @keyframes landing-section-content-enter-reverse {
   from {
     opacity: 0;
-    transform: translate3d(-4rem, 2rem, 0);
+    transform: translate3d(-2.5rem, 1.5rem, 0);
   }
   to {
     opacity: 1;
     transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes landing-sheet-shade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes landing-sheet-settle {
+  to {
+    border-start-start-radius: 0;
+    border-start-end-radius: 0;
+  }
+}
+
+@keyframes landing-hero-recede {
+  from {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  to {
+    transform: scale(0.96);
+    filter: brightness(0.92);
   }
 }
 

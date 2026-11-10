@@ -1,445 +1,316 @@
-import { ConfirmedActionButton } from "@/components/dashboard/ConfirmedActionButton";
-import { CampaignCard } from "@/components/dashboard/CampaignCard";
-import { Button } from "@/components/ui/button";
-import prisma from "@/lib/prisma";
-import { getSession } from "@/lib/session";
 import {
-  Activity,
-  ArrowRight,
   Bell,
-  Bot,
-  CalendarClock,
+  CalendarPlus,
+  CheckCircle2,
+  Circle,
   ExternalLink,
-  FileText,
+  FilePlus2,
+  LogOut,
   Power,
-  Trash2,
-  Users,
+  RefreshCw,
+  Wrench,
 } from "lucide-react";
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+
+import { ConfirmedActionButton } from "@/components/dashboard/ConfirmedActionButton";
+import { CampaignCard, campaignCardInclude } from "@/components/dashboard/CampaignCard";
+import { DestinationStatusBadge, EmptyState, PageHeader, Panel } from "@/components/publishing/ui";
+import { Button } from "@/components/ui/button";
+import prisma from "@/lib/prisma";
+import { dashboardPath, platformConfigs } from "@/services/bot-platforms/config";
+import { getConnectionStatus } from "@/services/bots/connection";
+import { requirePageBot } from "@/services/dashboard/access";
 import {
-  dashboardPath,
-  platformConfigs,
-  platformFromSlug,
-} from "@/services/bot-platforms/config";
-import { requirePlatformSlug } from "@/services/bot-platforms/server";
+  CHAT_TYPE_LABELS,
+  destinationStatusHelp,
+} from "@/services/publishing/destinations";
+import { faNumber, formatDateTime } from "@/services/publishing/format";
+import { PairingCodeButton } from "../PairingCodeButton";
 import {
-  deletePostAction,
+  checkDestinationAction,
   leaveConnectedChatAction,
+  repairConnectionAction,
   toggleBotStatusAction,
 } from "./actions";
-import { updatePostTopicsAction } from "./notifications/actions";
-
-const tehranDateTime = new Intl.DateTimeFormat("fa-IR", {
-  timeZone: "Asia/Tehran",
-  dateStyle: "medium",
-  timeStyle: "short",
-});
-
-function contentPreview(content: string | null) {
-  if (!content) return "محتوای رسانه‌ای بدون متن";
-  return content.length > 140 ? `${content.slice(0, 140)}…` : content;
-}
 
 export default async function BotWorkspacePage({
   params,
 }: {
   params: Promise<{ platform: string; botId: string }>;
 }) {
-  const session = await getSession();
-  if (!session?.userId) redirect("/login");
-
   const { platform, botId } = await params;
-  const platformSlug = requirePlatformSlug(platform);
+  const { platformSlug, bot } = await requirePageBot(platform, botId);
   const platformConfig = platformConfigs[platformSlug];
-  const bot = await prisma.bot.findFirst({
-    where: {
-      id: botId,
-      userId: session.userId,
-      platform: platformFromSlug(platformSlug),
+
+  const [destinations, postCount, campaignCount, campaigns, connection] = await Promise.all([
+    prisma.connectedChat.findMany({
+      where: { botId: bot.id },
+      orderBy: [{ status: "asc" }, { chatTitle: "asc" }],
+      include: { _count: { select: { targets: true } } },
+    }),
+    prisma.post.count({ where: { botId: bot.id, archivedAt: null } }),
+    prisma.campaign.count({ where: { botId: bot.id } }),
+    prisma.campaign.findMany({
+      where: { botId: bot.id, status: { not: "COMPLETED" } },
+      include: campaignCardInclude,
+      orderBy: { createdAt: "desc" },
+      take: 4,
+    }),
+    getConnectionStatus(bot).catch(() => null),
+  ]);
+
+  const activeDestinations = destinations.filter((d) => d.status === "ACTIVE").length;
+  const connected = Boolean(connection?.ok);
+  const steps = [
+    { done: connected, label: "اتصال ربات به سامانه", hint: "وب‌هوک ربات فعال و سالم است." },
+    {
+      done: Boolean(bot.ownerPlatformUserId),
+      label: "اتصال حساب مالک",
+      hint: "برای مدیریت از داخل ربات و دریافت پیش‌نمایش لازم است.",
     },
-    include: {
-      connectedChats: {
-        orderBy: { createdAt: "desc" },
-      },
-      posts: {
-        include: {
-          _count: { select: { campaigns: true } },
-          notificationTopics: {
-            select: { topicId: true },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-      },
-      notificationTopics: {
-        where: { isActive: true },
-        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-      },
-      _count: {
-        select: { subscribers: true },
-      },
-      campaigns: {
-        include: {
-          _count: { select: { history: true } },
-        },
-        orderBy: { createdAt: "desc" },
-      },
+    {
+      done: activeDestinations > 0,
+      label: "افزودن کانال یا گروه",
+      hint: "ربات را به مقصد اضافه کنید؛ در کانال باید مدیر با اجازه ارسال باشد.",
     },
-  });
-
-  if (!bot) notFound();
-
-  const activeCampaigns = bot.campaigns.filter(
-    (campaign) => campaign.isActive
-  ).length;
-  const chatCampaignCounts = new Map<string, number>();
-
-  for (const campaign of bot.campaigns) {
-    chatCampaignCounts.set(
-      campaign.chatId,
-      (chatCampaignCounts.get(campaign.chatId) ?? 0) + 1
-    );
-  }
+    { done: postCount > 0, label: "ساخت اولین پست", hint: "در داشبورد یا با فرستادن محتوا برای ربات." },
+    { done: campaignCount > 0, label: "اولین ارسال یا زمان‌بندی", hint: "پست را فوری بفرستید یا زمان‌بندی کنید." },
+  ];
+  const pendingSteps = steps.filter((step) => !step.done).length;
+  const telegram = platformSlug === "telegram";
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-2">
-          <Link
-            href={dashboardPath(platformSlug, "bots")}
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground"
-          >
-            <ArrowRight className="size-4" />
-            بازگشت به ربات‌ها
-          </Link>
-          <div className="flex items-center gap-3">
-            <div className="rounded-2xl bg-primary/10 p-3 text-primary">
-              <Bot className="size-7" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold" dir="ltr">
-                @{bot.username}
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                مرکز مدیریت محتوا، مقصدها و ارسال‌های این ربات
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Button asChild>
-            <Link
-              href={dashboardPath(
-                platformSlug,
-                `bots/${bot.id}/notifications`,
-              )}
+    <div className="mx-auto max-w-6xl space-y-6">
+      <PageHeader
+        back={{ href: dashboardPath(platformSlug, "bots"), label: "ربات‌ها" }}
+        title={<span dir="ltr">@{bot.username}</span>}
+        description={
+          bot.isActive
+            ? "ربات فعال است و ارسال‌ها انجام می‌شوند."
+            : "ربات غیرفعال است؛ ارسال‌ها و پاسخ‌گویی متوقف شده‌اند."
+        }
+        actions={
+          <>
+            <Button asChild>
+              <Link href={`${dashboardPath(platformSlug, "campaigns/new")}?botId=${bot.id}`}>
+                <CalendarPlus />
+                ارسال یا زمان‌بندی
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href={`${dashboardPath(platformSlug, "posts/new")}?botId=${bot.id}`}>
+                <FilePlus2 />
+                پست جدید
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <a href={platformConfig.botUrl(bot.username)} target="_blank" rel="noreferrer">
+                <ExternalLink />
+                باز کردن در {platformConfig.labelFa}
+              </a>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href={dashboardPath(platformSlug, `bots/${bot.id}/notifications`)}>
+                <Bell />
+                مشترک‌ها و اعلان‌ها
+              </Link>
+            </Button>
+            <ConfirmedActionButton
+              action={toggleBotStatusAction.bind(null, platformSlug, bot.id)}
+              pendingLabel="در حال تغییر…"
+              size="default"
+              confirmTitle={bot.isActive ? "ربات غیرفعال شود؟" : undefined}
+              confirmDescription={bot.isActive ? "تا فعال‌سازی دوباره، هیچ ارسال زمان‌بندی‌شده‌ای انجام نمی‌شود." : undefined}
             >
-              <Bell />
-              اعلان‌ها و مخاطبان
-            </Link>
-          </Button>
-          <Button asChild variant="outline">
-            <a
-              href={platformConfig.botUrl(bot.username)}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <ExternalLink />
-              باز کردن در {platformConfig.labelFa}
-            </a>
-          </Button>
-          <ConfirmedActionButton
-            action={toggleBotStatusAction.bind(null, platformSlug, bot.id)}
-            pendingLabel="در حال تغییر..."
-            variant={bot.isActive ? "outline" : "default"}
-          >
-            <Power />
-            {bot.isActive ? "غیرفعال‌کردن ربات" : "فعال‌کردن ربات"}
-          </ConfirmedActionButton>
-        </div>
-      </div>
+              <Power />
+              {bot.isActive ? "غیرفعال‌کردن" : "فعال‌کردن"}
+            </ConfirmedActionButton>
+          </>
+        }
+      />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          icon={<Activity />}
-          label="وضعیت ربات"
-          value={bot.isActive ? "فعال" : "غیرفعال"}
-          accent={bot.isActive ? "text-green-600" : "text-amber-600"}
-        />
-        <StatCard
-          icon={<CalendarClock />}
-          label="کمپین فعال"
-          value={activeCampaigns.toLocaleString("fa-IR")}
-        />
-        <StatCard
-          icon={<FileText />}
-          label="پست ذخیره‌شده"
-          value={bot.posts.length.toLocaleString("fa-IR")}
-        />
-        <StatCard
-          icon={<Users />}
-          label="مقصد متصل"
-          value={bot.connectedChats.length.toLocaleString("fa-IR")}
-        />
-      </div>
-
-      <section id="campaigns" className="space-y-4 scroll-mt-6">
-        <SectionHeading
-          icon={<CalendarClock />}
-          title="کمپین‌ها"
-          description="ارسال‌های زمان‌بندی‌شده را فعال، متوقف یا برای همیشه حذف کنید."
-          count={bot.campaigns.length}
-        />
-
-        {bot.campaigns.length === 0 ? (
-          <EmptyState text="هنوز کمپینی برای این ربات ثبت نشده است." />
-        ) : (
-          <div className="grid gap-4 lg:grid-cols-2">
-            {bot.campaigns.map((campaign) => (
-              <CampaignCard
-                key={campaign.id}
-                campaign={{
-                  ...campaign,
-                  bot: {
-                    id: bot.id,
-                    username: bot.username,
-                  },
-                }}
-                platform={platformSlug}
-                showBotDetails={false}
-              />
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section id="posts" className="space-y-4 scroll-mt-6">
-        <SectionHeading
-          icon={<FileText />}
-          title="پست‌های ذخیره‌شده"
-          description={`محتواهای دریافت‌شده از ${platformConfig.labelFa} و کمپین‌های وابسته را بررسی کنید.`}
-          count={bot.posts.length}
-        />
-
-        {bot.posts.length === 0 ? (
-          <EmptyState text="هنوز پستی از طریق این ربات دریافت نشده است." />
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {bot.posts.map((post) => (
-              <article
-                key={post.id}
-                className="flex min-h-64 flex-col rounded-2xl border bg-card p-5 shadow-sm"
+      {pendingSteps > 0 && (
+        <Panel
+          title="راه‌اندازی ربات"
+          description={`${faNumber(steps.length - pendingSteps)} از ${faNumber(steps.length)} مرحله انجام شده است.`}
+        >
+          <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            {steps.map((step) => (
+              <li
+                key={step.label}
+                className={`rounded-xl border p-3 ${step.done ? "border-emerald-200 bg-emerald-50/60" : "bg-white"}`}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-1">
-                    <span className="rounded-full bg-muted px-2.5 py-1 text-xs">
-                      {post.mediaType === "NONE" ? "متن" : post.mediaType}
-                    </span>
-                    <p className="text-xs text-muted-foreground">
-                      {tehranDateTime.format(post.createdAt)}
-                    </p>
-                  </div>
-                  <FileText className="size-5 text-muted-foreground" />
-                </div>
-
-                <p className="my-4 flex-1 whitespace-pre-wrap text-sm leading-7">
-                  {contentPreview(post.content)}
+                <p className="flex items-center gap-2 text-sm font-bold text-slate-800">
+                  {step.done ? (
+                    <CheckCircle2 className="size-4 text-emerald-600" />
+                  ) : (
+                    <Circle className="size-4 text-slate-300" />
+                  )}
+                  {step.label}
                 </p>
-
-                <div className="space-y-3 border-t pt-4">
-                  <form
-                    action={async (formData) => {
-                      "use server";
-                      await updatePostTopicsAction(
-                        platformSlug,
-                        bot.id,
-                        post.id,
-                        formData,
-                      );
-                    }}
-                    className="space-y-2 rounded-xl bg-slate-50 p-3"
-                  >
-                    <p className="text-xs font-bold text-slate-700">
-                      موضوع‌های اعلان این پست
-                    </p>
-                    {bot.notificationTopics.length ? (
-                      <div className="flex flex-wrap gap-2">
-                        {bot.notificationTopics.map((topic) => (
-                          <label
-                            key={topic.id}
-                            className="flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600"
-                          >
-                            <input
-                              type="checkbox"
-                              name="topicId"
-                              value={topic.id}
-                              defaultChecked={post.notificationTopics.some(
-                                (item) => item.topicId === topic.id,
-                              )}
-                            />
-                            {topic.name}
-                          </label>
-                        ))}
-                      </div>
-                    ) : (
-                      <Link
-                        href={dashboardPath(
-                          platformSlug,
-                          `bots/${bot.id}/notifications`,
-                        )}
-                        className="text-xs text-primary"
-                      >
-                        ابتدا یک موضوع اعلان بسازید.
-                      </Link>
-                    )}
-                    <Button type="submit" variant="outline" size="sm">
-                      ذخیره موضوع‌ها
-                    </Button>
-                  </form>
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>
-                      {post._count.campaigns.toLocaleString("fa-IR")} کمپین وابسته
-                    </span>
-                    <span>
-                      {post.sourceMessageId
-                        ? `ثبت‌شده از ${platformConfig.labelFa}`
-                        : "ثبت‌شده از داشبورد"}
-                    </span>
-                  </div>
-                  <ConfirmedActionButton
-                    action={deletePostAction.bind(
-                      null,
-                      platformSlug,
-                      bot.id,
-                      post.id,
-                    )}
-                    confirmTitle="حذف دائمی پست؟"
-                    confirmDescription={`با حذف این پست، ${post._count.campaigns.toLocaleString("fa-IR")} کمپین وابسته نیز برای همیشه حذف می‌شود.`}
-                    pendingLabel="در حال حذف..."
-                    variant="destructive"
-                    className="w-full"
-                  >
-                    <Trash2 />
-                    حذف پست و کمپین‌های وابسته
-                  </ConfirmedActionButton>
-                </div>
-              </article>
+                <p className="mt-1 text-xs leading-5 text-slate-500">{step.hint}</p>
+              </li>
             ))}
-          </div>
-        )}
-      </section>
+          </ol>
+        </Panel>
+      )}
 
-      <section id="destinations" className="space-y-4 scroll-mt-6">
-        <SectionHeading
-          icon={<Users />}
-          title="گروه‌ها و کانال‌های متصل"
-          description="مقصدهایی که ربات در آن‌ها عضو یا مدیر است."
-          count={bot.connectedChats.length}
-        />
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]">
+        <div className="space-y-6">
+          <Panel
+            title={`مقصدها (${faNumber(destinations.length)})`}
+            description="کانال‌ها و گروه‌هایی که ربات در آن‌ها عضو است. وضعیت با هر ارسال به‌روز می‌شود."
+          >
+            <div className="mb-4 rounded-xl bg-slate-50 p-4 text-sm leading-7 text-slate-600">
+              <p className="font-bold text-slate-800">افزودن مقصد جدید</p>
+              <p>
+                ربات را به کانال یا گروه اضافه کنید. در کانال، ربات باید <b>مدیر</b> باشد و اجازه «ارسال پیام» داشته باشد. پس از اضافه شدن، مقصد خودکار اینجا ظاهر می‌شود
+                {bot.ownerPlatformUserId ? " و در ربات هم به شما خبر داده می‌شود." : "."}
+              </p>
+              {telegram && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button asChild size="sm" variant="outline">
+                    <a href={`https://t.me/${bot.username}?startchannel&admin=post_messages+edit_messages`} target="_blank" rel="noreferrer">
+                      افزودن به کانال
+                    </a>
+                  </Button>
+                  <Button asChild size="sm" variant="outline">
+                    <a href={`https://t.me/${bot.username}?startgroup&admin=post_messages`} target="_blank" rel="noreferrer">
+                      افزودن به گروه
+                    </a>
+                  </Button>
+                </div>
+              )}
+            </div>
 
-        {bot.connectedChats.length === 0 ? (
-          <EmptyState text="این ربات هنوز به هیچ گروه یا کانالی متصل نشده است." />
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {bot.connectedChats.map((chat) => {
-              const campaignCount = chatCampaignCounts.get(chat.chatId) ?? 0;
+            {destinations.length === 0 ? (
+              <EmptyState title="هنوز مقصدی ثبت نشده است">
+                بعد از افزودن ربات به کانال یا گروه، این صفحه را تازه کنید.
+              </EmptyState>
+            ) : (
+              <ul className="divide-y rounded-xl border">
+                {destinations.map((destination) => (
+                  <li key={destination.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0 space-y-1">
+                      <p className="flex flex-wrap items-center gap-2">
+                        <span className="font-bold text-slate-900">{destination.chatTitle}</span>
+                        <DestinationStatusBadge status={destination.status} />
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {CHAT_TYPE_LABELS[destination.chatType]} · {faNumber(destination._count.targets)} کمپین
+                        {destination.lastCheckedAt &&
+                          ` · بررسی: ${formatDateTime(destination.lastCheckedAt, "Asia/Tehran")}`}
+                      </p>
+                      {destination.status !== "ACTIVE" && (
+                        <p className="text-xs leading-5 text-amber-700">{destinationStatusHelp(destination.status)}</p>
+                      )}
+                    </div>
+                    <div className="flex shrink-0 flex-wrap gap-2">
+                      <ConfirmedActionButton
+                        action={checkDestinationAction.bind(null, platformSlug, bot.id, destination.id)}
+                        pendingLabel="در حال بررسی…"
+                      >
+                        <RefreshCw />
+                        بررسی دسترسی
+                      </ConfirmedActionButton>
+                      <ConfirmedActionButton
+                        action={leaveConnectedChatAction.bind(null, platformSlug, bot.id, destination.id)}
+                        confirmTitle="حذف این مقصد؟"
+                        confirmDescription={`ربات از «${destination.chatTitle}» خارج می‌شود و این مقصد از ${faNumber(destination._count.targets)} کمپین حذف می‌شود. تاریخچه ارسال‌ها حفظ می‌شود.`}
+                        pendingLabel="در حال حذف…"
+                        variant="destructive"
+                      >
+                        <LogOut />
+                        حذف
+                      </ConfirmedActionButton>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Panel>
 
-              return (
-                <article
-                  key={chat.id}
-                  className="flex flex-col gap-4 rounded-2xl border bg-card p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+          <Panel
+            title="کمپین‌های جاری"
+            actions={
+              <Link href={dashboardPath(platformSlug, "campaigns")} className="text-xs font-bold text-primary">
+                همه کمپین‌ها
+              </Link>
+            }
+          >
+            {campaigns.length === 0 ? (
+              <EmptyState title="کمپین جاری ندارید">
+                پست را فوری بفرستید یا برای ارسال روزانه، هفتگی یا تکراری زمان‌بندی کنید.
+              </EmptyState>
+            ) : (
+              <div className="grid gap-4 xl:grid-cols-2">
+                {campaigns.map((campaign) => (
+                  <CampaignCard key={campaign.id} campaign={campaign} platform={platformSlug} showBot={false} />
+                ))}
+              </div>
+            )}
+          </Panel>
+        </div>
+
+        <aside className="space-y-6">
+          <Panel title="وضعیت اتصال">
+            {connection ? (
+              <div className="space-y-2 text-sm">
+                <p className={`font-bold ${connected ? "text-emerald-700" : "text-amber-700"}`}>
+                  {connected
+                    ? "ربات به‌درستی به سامانه متصل است."
+                    : !connection.usesCurrentUrl
+                      ? "اتصال ربات قدیمی یا نادرست است."
+                      : "پیام‌رسان در تحویل پیام‌ها به سامانه خطا داشته است."}
+                </p>
+                {connection.lastError && (
+                  <p className="text-xs leading-5 text-slate-500" dir="ltr">
+                    {connection.lastError}
+                  </p>
+                )}
+                {connection.pendingUpdates > 0 && (
+                  <p className="text-xs text-slate-500">
+                    {faNumber(connection.pendingUpdates)} پیام در انتظار تحویل
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500">
+                وضعیت اتصال از {platformConfig.labelFa} دریافت نشد. اگر توکن ربات تغییر کرده، ربات را حذف و دوباره اضافه کنید.
+              </p>
+            )}
+            {!connected && (
+              <div className="mt-4">
+                <ConfirmedActionButton
+                  action={repairConnectionAction.bind(null, platformSlug, bot.id)}
+                  pendingLabel="در حال اتصال…"
+                  size="default"
                 >
-                  <div>
-                    <h3 className="font-semibold">{chat.chatTitle}</h3>
-                    <p
-                      className="mt-1 text-xs text-muted-foreground"
-                      dir="ltr"
-                    >
-                      {chat.chatId}
-                    </p>
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      {campaignCount.toLocaleString("fa-IR")} کمپین مرتبط
-                    </p>
-                  </div>
-                  <ConfirmedActionButton
-                    action={leaveConnectedChatAction.bind(
-                      null,
-                      platformSlug,
-                      bot.id,
-                      chat.id
-                    )}
-                    confirmTitle="خروج ربات از این مقصد؟"
-                    confirmDescription={`ربات از «${chat.chatTitle}» خارج می‌شود و ${campaignCount.toLocaleString("fa-IR")} کمپین مرتبط متوقف خواهد شد.`}
-                    pendingLabel="در حال خروج..."
-                    variant="destructive"
-                  >
-                    <Trash2 />
-                    خروج ربات
-                  </ConfirmedActionButton>
-                </article>
-              );
-            })}
-          </div>
-        )}
-      </section>
-    </div>
-  );
-}
+                  <Wrench />
+                  اتصال دوباره
+                </ConfirmedActionButton>
+              </div>
+            )}
+          </Panel>
 
-function StatCard({
-  icon,
-  label,
-  value,
-  accent = "text-foreground",
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  accent?: string;
-}) {
-  return (
-    <div className="rounded-2xl border bg-card p-5 shadow-sm">
-      <div className="mb-3 flex items-center justify-between text-muted-foreground">
-        <span className="text-sm">{label}</span>
-        <span className="[&_svg]:size-5">{icon}</span>
+          <Panel title="حساب مالک">
+            {bot.ownerPlatformUserId ? (
+              <p className="text-sm leading-6 text-slate-600">
+                حساب شما به ربات متصل است. در گفت‌وگوی خصوصی با ربات، /start را بفرستید تا منوی مدیریت را ببینید.
+              </p>
+            ) : (
+              <PairingCodeButton platform={platformSlug} botId={bot.id} />
+            )}
+          </Panel>
+
+          <Panel title="محتوا">
+            <p className="text-sm text-slate-600">{faNumber(postCount)} پست آماده انتشار</p>
+            <Button asChild variant="outline" size="sm" className="mt-3">
+              <Link href={`${dashboardPath(platformSlug, "posts")}?botId=${bot.id}`}>مشاهده پست‌ها</Link>
+            </Button>
+          </Panel>
+        </aside>
       </div>
-      <p className={`text-2xl font-bold ${accent}`}>{value}</p>
-    </div>
-  );
-}
-
-function SectionHeading({
-  icon,
-  title,
-  description,
-  count,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  count: number;
-}) {
-  return (
-    <div className="flex items-start justify-between gap-4">
-      <div>
-        <h2 className="flex items-center gap-2 text-xl font-bold">
-          <span className="text-primary [&_svg]:size-5">{icon}</span>
-          {title}
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-      </div>
-      <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium">
-        {count.toLocaleString("fa-IR")}
-      </span>
-    </div>
-  );
-}
-
-function EmptyState({ text }: { text: string }) {
-  return (
-    <div className="rounded-2xl border border-dashed p-10 text-center text-sm text-muted-foreground">
-      {text}
     </div>
   );
 }

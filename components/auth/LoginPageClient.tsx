@@ -93,10 +93,11 @@ function OtpInput({
           onChange={(event) => updateDigit(index, event.target.value)}
           onKeyDown={(event) => handleKeyDown(index, event)}
           onPaste={handlePaste}
-          className={`h-14 w-12 rounded-xl border-2 text-center text-xl font-bold outline-none transition ${
+          aria-label={`رقم ${index + 1}`}
+          className={`h-14 w-12 rounded-2xl border-2 text-center text-xl font-black outline-none transition sm:w-14 ${
             digit
-              ? "border-amber-500 bg-amber-50 text-amber-900"
-              : "border-gray-200 bg-gray-50 focus:border-amber-400 focus:bg-white"
+              ? "border-brand-telegram bg-brand-telegram/8 text-slate-950"
+              : "border-slate-200 bg-slate-50 focus:border-brand-telegram focus:bg-white focus:ring-4 focus:ring-brand-telegram/15"
           } disabled:opacity-50`}
         />
       ))}
@@ -179,34 +180,36 @@ export default function LoginPageClient() {
   };
 
   return (
-    <div className="w-full max-w-md rounded-3xl border border-white/20 bg-white/60 p-8 shadow-2xl shadow-gray-200/50 backdrop-blur dark:bg-gray-900 dark:shadow-black/50 md:bg-white">
-      <div className="mb-7 text-center">
-        <p className="mb-2 text-sm font-medium text-amber-600">BotWizard</p>
-        <h1 className="text-xl font-bold text-gray-800 dark:text-white">
-          ورود به حساب کاربری
+    <div className="w-full max-w-md">
+      <div className="mb-8">
+        <h1 className="text-3xl font-black tracking-[-0.03em] text-slate-950 sm:text-4xl">
+          ورود به حساب
         </h1>
-        <p className="mt-2 text-xs leading-6 text-gray-500 dark:text-gray-400">
+        <p className="mt-3 text-sm leading-7 text-slate-500">
           با حساب تلگرام وارد شوید یا کد تایید را از ربات دریافت کنید.
         </p>
       </div>
 
       <TelegramLoginWidget />
 
-      <div className="my-6 flex items-center gap-3 text-xs text-gray-400">
-        <span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+      <div className="my-7 flex items-center gap-3 text-xs font-bold text-slate-400">
+        <span className="h-px flex-1 bg-slate-200" />
         <span>یا ورود با شماره متصل به ربات</span>
-        <span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+        <span className="h-px flex-1 bg-slate-200" />
       </div>
 
       {visibleError && (
-        <div className="mb-5 rounded-xl border border-red-100 bg-red-50 p-4 text-center text-xs leading-6 text-red-600 dark:border-red-800 dark:bg-red-900/10 dark:text-red-300">
+        <div
+          role="alert"
+          className="mb-5 rounded-2xl border border-red-100 bg-red-50 p-4 text-center text-xs leading-6 text-red-600"
+        >
           <p>{visibleError}</p>
           {showBotHelp && (
             <a
               href={`https://t.me/${process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME}`}
               target="_blank"
               rel="noreferrer"
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-2 font-bold text-white transition hover:bg-blue-700"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-brand-telegram py-2.5 font-bold text-white transition hover:bg-[#168acd]"
             >
               <Bot className="h-4 w-4" />
               <span>اتصال شماره در ربات تلگرام</span>
@@ -216,9 +219,13 @@ export default function LoginPageClient() {
       )}
 
       {step === "phone" ? (
-        <form onSubmit={requestOtp} className="space-y-5">
+        <form onSubmit={requestOtp} className="space-y-4">
+          <label htmlFor="login-phone" className="sr-only">
+            شماره موبایل
+          </label>
           <div className="relative">
             <input
+              id="login-phone"
               type="tel"
               required
               value={phone}
@@ -226,16 +233,16 @@ export default function LoginPageClient() {
               placeholder="0912..."
               autoComplete="tel"
               dir="ltr"
-              className="w-full rounded-2xl border border-gray-200 bg-gray-50 py-3.5 pl-4 pr-12 text-left font-mono text-lg text-gray-800 outline-none transition focus:border-amber-500 focus:bg-white focus:ring-2 focus:ring-amber-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+              className="h-13 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-4 pr-12 text-left text-lg tracking-wide text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-brand-telegram focus:bg-white focus:ring-4 focus:ring-brand-telegram/15"
             />
-            <Phone className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <Phone className="pointer-events-none absolute right-4 top-1/2 size-5 -translate-y-1/2 text-slate-400" />
           </div>
           <button
             type="submit"
             disabled={pending}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-500 py-3.5 font-bold text-white shadow-lg transition hover:bg-amber-600 disabled:opacity-60 dark:text-gray-900"
+            className="flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 text-sm font-black text-white shadow-lg shadow-slate-950/15 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {pending && <Loader2 className="h-5 w-5 animate-spin" />}
+            {pending && <Loader2 className="size-5 animate-spin" />}
             <span>
               {pending ? "در حال ارسال..." : "دریافت پیام ورود در تلگرام"}
             </span>
@@ -247,35 +254,36 @@ export default function LoginPageClient() {
             <button
               type="button"
               onClick={returnToPhone}
-              className="absolute right-0 top-0 rounded-full p-1 text-gray-400 transition hover:bg-gray-100"
+              className="absolute right-0 top-0 rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-950"
               title="بازگشت"
+              aria-label="بازگشت به وارد کردن شماره"
             >
-              <ArrowRight className="h-5 w-5" />
+              <ArrowRight className="size-5" />
             </button>
-            <p className="text-sm font-bold text-gray-800 dark:text-white">
+            <p className="text-sm font-black text-slate-950">
               کد پنج رقمی را وارد کنید
             </p>
-            <p className="mt-2 text-xs text-gray-500">
+            <p className="mt-2 text-xs text-slate-500">
               پیام ورود برای شماره {maskedPhone} ارسال شد.
             </p>
           </div>
           <OtpInput disabled={pending} onComplete={verifyOtp} />
           {pending && (
-            <div className="flex items-center justify-center gap-2 text-sm text-amber-600">
-              <Loader2 className="h-4 w-4 animate-spin" />
+            <div className="flex items-center justify-center gap-2 text-sm font-bold text-brand-telegram">
+              <Loader2 className="size-4 animate-spin" />
               <span>در حال اعتبارسنجی...</span>
             </div>
           )}
         </div>
       )}
 
-      <div className="mt-8 border-t border-gray-100 pt-6 text-center dark:border-gray-800">
-        <p className="flex flex-wrap items-center justify-center gap-1 text-[10px] text-gray-400">
-          <ShieldCheck className="h-3 w-3" />
+      <div className="mt-8 border-t border-slate-100 pt-6">
+        <p className="flex flex-wrap items-center justify-center gap-1 text-xs text-slate-400">
+          <ShieldCheck className="size-3.5" />
           <span>ورود شما به معنای پذیرش</span>
           <Link
             href="/policy"
-            className="text-gray-600 underline decoration-gray-300 underline-offset-2 transition hover:text-amber-600 dark:text-gray-300"
+            className="text-slate-600 underline decoration-slate-300 underline-offset-2 transition hover:text-brand-telegram"
           >
             قوانین و حریم خصوصی
           </Link>

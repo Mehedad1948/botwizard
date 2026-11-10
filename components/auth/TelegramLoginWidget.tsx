@@ -180,7 +180,7 @@ export default function TelegramLoginWidget() {
         type="button"
         onClick={handleTelegramLogin}
         disabled={pending}
-        className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#229ED9] px-4 py-3.5 text-sm font-bold text-white transition hover:bg-[#1b8fc7] disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-brand-telegram px-4 text-sm font-black text-white shadow-lg shadow-brand-telegram/25 transition hover:bg-[#168acd] disabled:cursor-not-allowed disabled:opacity-60"
       >
         {pending ? (
           <Loader2 className="h-5 w-5 animate-spin" />
@@ -193,7 +193,9 @@ export default function TelegramLoginWidget() {
       </button>
 
       {error && (
-        <p className="text-center text-xs leading-6 text-red-600">{error}</p>
+        <p role="alert" className="text-center text-xs leading-6 text-red-600">
+          {error}
+        </p>
       )}
     </div>
   );
