@@ -70,7 +70,8 @@ before the user applies it.
 
 ## Risks
 
-- Vercel Hobby cron runs only daily → document an external per-minute trigger
-  and ship `npm run scheduler` for VPS/dev.
+- Vercel Hobby cron runs only daily → cron-job.org calls the tick every
+  minute (`scripts/setup-cron-job.mjs`); it aborts after 30s, so a tick stops
+  after ~22s and leaves the rest to the next minute.
 - Server Action uploads are limited to 4.5 MB on Vercel → large media should be
   sent through the bot.

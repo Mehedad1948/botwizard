@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "scheduler": "node scripts/scheduler.mjs",
-    "test:db": "vitest run tests/scheduler.int.test.ts"
+    "test:db": "vitest run tests/scheduler.int.test.ts",
+    "cron:setup": "node --env-file=.env scripts/setup-cron-job.mjs"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",

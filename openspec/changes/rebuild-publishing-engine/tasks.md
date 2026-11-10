@@ -17,7 +17,7 @@
 ## 3. Entry points
 
 - [x] 3.1 `POST /api/cron/tick` with `CRON_SECRET`, `maxDuration`
-- [x] 3.2 `scripts/scheduler.mjs` loop for dev/VPS, `vercel.json` cron
+- [x] 3.2 `scripts/scheduler.mjs` loop for dev/VPS, cron-job.org setup script (`npm run cron:setup`)
 - [x] 3.3 `/api/bots/hook/[webhookId]` with secret verification; legacy routes delegate
 - [x] 3.4 Repair-connection action (re-register webhook, show webhook info)
 

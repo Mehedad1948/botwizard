@@ -583,7 +583,7 @@ deliveries, and every failure visible in Activity.
 
 | # | Decision | Needed by | Recommendation |
 |---|---|---|---|
-| D1 | Hosting & cron trigger | Phase 1 | Keep Next.js app; trigger `/api/cron/tick` every minute from Vercel Cron (check plan frequency limits) or an external scheduler (e.g. Upstash QStash). If servers must run in Iran for Bale reachability, a small VPS with a systemd timer calling the same endpoint. |
+| D1 | Hosting & cron trigger | Phase 1 | **Decided:** Next.js on Vercel; cron-job.org calls `/api/cron/tick` every minute (`npm run cron:setup`). |
 | D2 | Bale API reachability from the host | Phase 1 | Measure from the chosen host; the existing `V2RAY_PROXY` hints at network constraints. |
 | D3 | Keep `copyMessage` fallback forever? | Phase 2 | Keep for legacy rows only; new content uses stored `file_id`s. |
 | D4 | Main Telegram bot role | Phase 2 | Keep for login + quick token connect; dashboard is the primary onboarding. |
@@ -622,7 +622,7 @@ Done (covers plan Phases 0, 1, 2 and most of 3–4 for publishing):
 
 - Multi-destination campaigns, ONCE/INTERVAL/DAILY/WEEKLY schedules with
   timezone, end date, max runs and jitter; working scheduler (`/api/cron/tick`,
-  `vercel.json`, `npm run scheduler`) with exactly-once delivery per
+  cron-job.org via `npm run cron:setup`, `npm run scheduler`) with exactly-once delivery per
   destination and run, retries, and Persian failure explanations.
 - Posts store media `file_id`, entities and URL buttons; dashboard composer
   with media upload; post library with archive and preview-in-bot.

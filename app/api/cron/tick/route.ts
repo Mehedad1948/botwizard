@@ -18,10 +18,11 @@ async function handle(request: Request) {
   if (!authorized(request)) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
-  const summary = await runSchedulerTick(45_000);
+  // cron-job.org aborts requests after 30s; the next minute's tick continues.
+  const summary = await runSchedulerTick(22_000);
   return NextResponse.json({ ok: true, ...summary });
 }
 
-// Vercel Cron issues GET requests; external schedulers may POST.
+// cron-job.org (scripts/setup-cron-job.mjs) POSTs; GET is kept for manual checks.
 export const GET = handle;
 export const POST = handle;

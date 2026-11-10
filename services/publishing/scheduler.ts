@@ -311,7 +311,8 @@ export async function runSchedulerTick(budgetMs = 45_000): Promise<TickSummary> 
   }
 
   while (hasTime()) {
-    const ids = await claimDeliveries({ now: new Date(), limit: 50 });
+    // Small batches so a tick never holds many leased deliveries past its budget.
+    const ids = await claimDeliveries({ now: new Date(), limit: 10 });
     if (!ids.length) break;
     for (const outcome of await sendClaimed(ids)) {
       if (outcome === "SENT") summary.sent += 1;

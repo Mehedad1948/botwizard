@@ -22,8 +22,10 @@ There are two user interfaces:
    - Connected Telegram and Bale bots manage drafts, destinations, and campaigns.
 
 Scheduled delivery runs through `POST|GET /api/cron/tick` (protected by
-`CRON_SECRET`), which must be called every minute by a platform cron
-(`vercel.json`) or `npm run scheduler`. Without a caller nothing is sent.
+`CRON_SECRET`), which is called every minute by the cron-job.org job
+"BotWizard scheduler" (created/updated by `npm run cron:setup -- <prod URL>`,
+using `CRON_JOB_API_KEY`). Locally use `npm run scheduler`. Without a caller
+nothing is sent. Each tick stops after ~22s to fit cron-job.org's 30s limit.
 The rebuild plan and product decisions live in `docs/REFACTOR_PLAN.md`; the
 active OpenSpec change is `openspec/changes/rebuild-publishing-engine`.
 
@@ -390,7 +392,8 @@ campaign rows share one logical subscriber audience.
 Required or referenced:
 
 - `DATABASE_URL` - PostgreSQL connection string
-- `CRON_SECRET` - Bearer secret for `/api/cron/tick` (Vercel Cron sends it)
+- `CRON_SECRET` - Bearer secret for `/api/cron/tick`; must match production
+- `CRON_JOB_API_KEY` - cron-job.org API key, only for `npm run cron:setup`
 - `SESSION_SECRET` - HS256 session signing secret
 - `TELEGRAM_LOGIN_BOT_TOKEN` - Main/platform bot token
 - `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME` - Main bot link on the login page
@@ -534,8 +537,8 @@ There is no test script or test suite.
 Treat these as known issues, not established design choices:
 
 1. Scheduled execution depends on an external per-minute caller of
-   `/api/cron/tick`. Vercel Hobby crons run at most daily; use Pro, an
-   external scheduler, or `npm run scheduler` on a server.
+   `/api/cron/tick` (cron-job.org). If that job is disabled (it is
+   auto-disabled after repeated failures), nothing is sent.
 2. The Telegram main bot remains the only account registration conversation;
    Bale ownership is bot-scoped through one-time pairing rather than a Bale
    account login flow.
