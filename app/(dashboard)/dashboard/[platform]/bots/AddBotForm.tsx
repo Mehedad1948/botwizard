@@ -46,12 +46,12 @@ export function AddBotForm({ platform }: { platform: PlatformSlug }) {
     <form
       ref={formRef}
       onSubmit={handleSubmit}
-      className="flex flex-wrap items-end gap-4 sm:flex-nowrap"
+      className="space-y-2"
     >
-      <div className="w-full flex-1 space-y-2">
-        <label htmlFor="token" className="text-sm font-medium">
-          توکن ربات
-        </label>
+      <label htmlFor="token" className="block text-sm font-medium">
+        توکن ربات
+      </label>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <Input
           type="password"
           id="token"
@@ -60,21 +60,22 @@ export function AddBotForm({ platform }: { platform: PlatformSlug }) {
           placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
           dir="ltr"
           required
+          className="h-10 flex-1"
         />
-        <p className="text-xs text-muted-foreground">
-          توکن محرمانه است و پس از ثبت در صفحه نمایش داده نمی‌شود.
-        </p>
+        <Button
+          type="submit"
+          variant="brand-dark"
+          size="brand-sm"
+          disabled={pending}
+          className="w-full shrink-0 whitespace-nowrap sm:w-auto"
+        >
+          {pending ? <Loader2 className="animate-spin" /> : <Bot />}
+          {pending ? "در حال بررسی و اتصال..." : "افزودن ربات"}
+        </Button>
       </div>
-      <Button
-        type="submit"
-        variant="brand-dark"
-        size="brand-sm"
-        disabled={pending}
-        className="w-full whitespace-nowrap sm:w-auto"
-      >
-        {pending ? <Loader2 className="animate-spin" /> : <Bot />}
-        {pending ? "در حال بررسی و اتصال..." : "افزودن ربات"}
-      </Button>
+      <p className="text-xs text-muted-foreground">
+        توکن محرمانه است و پس از ثبت در صفحه نمایش داده نمی‌شود.
+      </p>
       {error && <p className="w-full text-xs text-destructive">{error}</p>}
       {success && (
         <p className="w-full rounded-xl bg-emerald-50 p-3 text-xs leading-6 text-emerald-700">
